@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Clients{% endblock %}
+{% block page_title %}<i class="bi bi-people me-2"></i>Gestion des clients{% endblock %}
+
+{% block sidebar %}
+<div class="sidebar">
+  <div class="brand">🏦 Bank<span>Digital</span></div>
+  <nav class="mt-2">
+    <div class="nav-section">Menu</div>
+    <a href="{{ url_for('gestionnaire.dashboard') }}"><i class="bi bi-speedometer2"></i>Dashboard</a>
+    <a href="{{ url_for('gestionnaire.notifications') }}"><i class="bi bi-bell"></i>Notifications</a>
+    <div class="nav-section">Opérations</div>
+    <a href="{{ url_for('gestionnaire.cheques') }}"><i class="bi bi-file-earmark-text"></i>Chèques</a>
+    <a href="{{ url_for('gestionnaire.remises') }}"><i class="bi bi-collection"></i>Remises</a>
+    <div class="nav-section">Clients</div>
+    <a href="{{ url_for('gestionnaire.clients') }}" class="active"><i class="bi bi-people"></i>Clients & Comptes</a>
+  </nav>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span>{{ clients|length }} client(s) enregistré(s)</span>
+    <input type="text" id="search" class="form-control form-control-sm w-auto" placeholder="Rechercher...">
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover mb-0" id="clientsTable">
+      <thead>
+        <tr><th>Nom</th><th>Email</th><th>Téléphone</th><th>Comptes</th><th>Inscrit le</th><th>Action</th></tr>
+      </thead>
+      <tbody>
+        {% for c in clients %}
+        <tr>
+          <td class="fw-semibold">{{ c.prenom }} {{ c.nom }}</td>
+          <td>{{ c.email }}</td>
+          <td>{{ c.telephone or '—' }}</td>
+          <td>
+            {% set nb = c.comptes|length %}
+            {% if nb == 0 %}
+            <span class="badge bg-warning text-dark">Aucun compte</span>
+            {% else %}
+            <span class="badge bg-success">{{ nb }} compte(s)</span>
+            {% endif %}
+          </td>
+          <td class="text-muted small">{{ c.created_at.strftime('%d/%m/%Y') }}</td>
+          <td>
+            <a href="{{ url_for('gestionnaire.detail_client', client_id=c.id) }}" class="btn btn-sm btn-primary py-0 px-2">
+              <i class="bi bi-person-lines-fill me-1"></i>Gérer
+            </a>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="text-center text-muted py-5">Aucun client</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.getElementById('search').addEventListener('input', function() {
+    const q = this.value.toLowerCase();
+    document.querySelectorAll('#clientsTable tbody tr').forEach(row => {
+      row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+  });
+</script>
+{% endblock %}

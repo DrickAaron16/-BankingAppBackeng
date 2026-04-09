@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block title %}Remise {{ remise.reference }}{% endblock %}
+{% block page_title %}<i class="bi bi-collection me-2"></i>Remise {{ remise.reference }}{% endblock %}
+
+{% block sidebar %}
+<div class="sidebar">
+  <div class="brand">🏦 Bank<span>Digital</span></div>
+  <nav class="mt-2">
+    <div class="nav-section">Menu</div>
+    <a href="{{ url_for('gestionnaire.dashboard') }}"><i class="bi bi-speedometer2"></i>Dashboard</a>
+    <a href="{{ url_for('gestionnaire.notifications') }}"><i class="bi bi-bell"></i>Notifications</a>
+    <div class="nav-section">Chèques</div>
+    <a href="{{ url_for('gestionnaire.cheques') }}"><i class="bi bi-file-earmark-text"></i>Valider chèques</a>
+    <div class="nav-section">Remises</div>
+    <a href="{{ url_for('gestionnaire.remises') }}" class="active"><i class="bi bi-collection"></i>Valider remises</a>
+  </nav>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <a href="{{ url_for('gestionnaire.remises') }}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i>Retour à la liste
+  </a>
+</div>
+
+<div class="row g-3">
+  <!-- Colonne gauche : résumé + décision -->
+  <div class="col-lg-4">
+    <!-- Résumé -->
+    <div class="card p-4 mb-3">
+      <h6 class="fw-bold mb-3"><i class="bi bi-info-circle me-2"></i>Résumé</h6>
+      {% set total = remise.details | sum(attribute='montant') %}
+      <table class="table table-borderless table-sm mb-0">
+        <tr><td class="text-muted">Référence</td><td><code>{{ remise.reference }}</code></td></tr>
+        <tr><td class="text-muted">Client</td><td class="fw-semibold">{{ remise.client.prenom }} {{ remise.client.nom }}</td></tr>
+        <tr><td class="text-muted">Téléphone</td><td>{{ remise.client.telephone or '—' }}</td></tr>
+        <tr><td class="text-muted">Nb chèques</td><td>{{ remise.details|length }}</td></tr>
+        <tr><td class="text-muted">Montant total</td><td class="fw-bold text-primary fs-5">{{ "{:,.0f}".format(total) }} XOF</td></tr>
+        <tr>
+          <td class="text-muted">Statut</td>
+          <td><span class="badge badge-{{ remise.statut.value }} rounded-pill px-2">{{ remise.statut.value.replace('_',' ').title() }}</span></td>
+        </tr>
+        <tr><td class="text-muted">Date</td><td>{{ remise.created_at.strftime('%d/%m/%Y %H:%M') }}</td></tr>
+        {% if remise.caissier_id %}
+        <tr><td class="text-muted">Caissier</td><td><span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>Confirmé</span></td></tr>
+        {% else %}
+        <tr><td class="text-muted">Caissier</td><td><span class="text-warning">En attente dépôt</span></td></tr>
+        {% endif %}
+      </table>
+
+      {% if remise.qr_code_path %}
+      <hr>
+      <div class="text-center">
+        <p class="text-muted small mb-2">QR Code bordereau</p>
+        <img src="/uploads/{{ remise.qr_code_path }}" style="width:130px">
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Décision -->
+    {% if remise.statut.value == 'en_attente' %}
+    <div class="card p-4 border-primary" style="border-width:2px !important">
+      <h6 class="fw-bold mb-3 text-primary"><i class="bi bi-pencil-square me-2"></i>Décision</h6>
+      <form method="POST" action="{{ url_for('gestionnaire.decision_remise', remise_id=remise.id) }}">
+        <div class="mb-3">
+          <div class="d-flex gap-3">
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="decision" id="dec_valide" value="valide" required>
+              <label class="form-check-label text-success fw-semibold" for="dec_valide">
+                <i class="bi bi-check-circle-fill me-1"></i>Valider
+              </label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="decision" id="dec_refuse" value="refuse">
+              <label class="form-check-label text-danger fw-semibold" for="dec_refuse">
+                <i class="bi bi-x-circle-fill me-1"></i>Refuser
+              </label>
+            </div>
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Commentaire</label>
+          <textarea name="commentaire" class="form-control" rows="3"
+                    placeholder="Motif (optionnel)..."></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary w-100"
+                onclick="return confirm('Confirmer cette décision ? Le client sera notifié.')">
+          <i class="bi bi-send me-2"></i>Confirmer et notifier
+        </button>
+      </form>
+    </div>
+    {% else %}
+    <div class="card p-4 bg-light text-center text-muted">
+      <i class="bi bi-check2-all fs-2"></i>
+      <p class="mt-2 mb-0">Remise déjà traitée.</p>
+      {% if remise.commentaire %}
+      <p class="mt-1 fst-italic small">{{ remise.commentaire }}</p>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Colonne droite : chèques avec images -->
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header">Chèques de la remise ({{ remise.details|length }})</div>
+      <div class="p-3">
+        {% for d in remise.details %}
+        <div class="card mb-3 border">
+          <div class="row g-0">
+            <!-- Image -->
+            <div class="col-md-5">
+              {% if d.image_path %}
+              <img src="/uploads/{{ d.image_path }}"
+                   class="img-fluid rounded-start cheque-img-full"
+                   style="height:180px; object-fit:cover; cursor:zoom-in; width:100%"
+                   onclick="openImg('/uploads/{{ d.image_path }}')">
+              {% else %}
+              <div class="d-flex align-items-center justify-content-center bg-light h-100 rounded-start" style="min-height:120px">
+                <div class="text-center text-muted">
+                  <i class="bi bi-image fs-2"></i>
+                  <p class="small mb-0">Pas d'image</p>
+                </div>
+              </div>
+              {% endif %}
+            </div>
+            <!-- Infos -->
+            <div class="col-md-7">
+              <div class="card-body py-3">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                  <h6 class="fw-bold mb-0">N° {{ d.numero_cheque }}</h6>
+                  <span class="fw-bold text-primary">{{ "{:,.0f}".format(d.montant) }} XOF</span>
+                </div>
+                <table class="table table-borderless table-sm mb-0" style="font-size:.85rem">
+                  <tr><td class="text-muted py-0">Émetteur</td><td class="py-0 fw-semibold">{{ d.emetteur or '—' }}</td></tr>
+                  <tr><td class="text-muted py-0">Téléphone</td><td class="py-0">{{ d.telephone_emetteur or '—' }}</td></tr>
+                  <tr><td class="text-muted py-0">Compte émetteur</td><td class="py-0"><code>{{ d.compte_emetteur or '—' }}</code></td></tr>
+                  <tr><td class="text-muted py-0">Banque</td><td class="py-0">{{ d.banque or '—' }}</td></tr>
+                  <tr><td class="text-muted py-0">Bénéficiaire</td><td class="py-0">{{ d.beneficiaire or '—' }}</td></tr>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Lightbox image -->
+<div id="lightbox" class="d-none position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
+     style="background:rgba(0,0,0,.88); z-index:9999; cursor:zoom-out"
+     onclick="this.classList.add('d-none')">
+  <img id="lightboxImg" src="" style="max-width:95vw; max-height:95vh; border-radius:8px">
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function openImg(src) {
+    document.getElementById('lightboxImg').src = src;
+    document.getElementById('lightbox').classList.remove('d-none');
+  }
+</script>
+{% endblock %}

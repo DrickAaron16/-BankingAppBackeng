@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Validation Chèques{% endblock %}
+{% block page_title %}<i class="bi bi-file-earmark-text me-2"></i>Validation des chèques{% endblock %}
+
+{% block sidebar %}
+<div class="sidebar">
+  <div class="brand">🏦 Bank<span>Digital</span></div>
+  <nav class="mt-2">
+    <div class="nav-section">Menu</div>
+    <a href="{{ url_for('gestionnaire.dashboard') }}"><i class="bi bi-speedometer2"></i>Dashboard</a>
+    <a href="{{ url_for('gestionnaire.notifications') }}"><i class="bi bi-bell"></i>Notifications</a>
+    <div class="nav-section">Chèques</div>
+    <a href="{{ url_for('gestionnaire.cheques') }}" class="active"><i class="bi bi-file-earmark-text"></i>Valider chèques</a>
+    <div class="nav-section">Remises</div>
+    <a href="{{ url_for('gestionnaire.remises') }}"><i class="bi bi-collection"></i>Valider remises</a>
+  </nav>
+</div>
+{% endblock %}
+
+{% block content %}
+<!-- Filtres avec compteurs -->
+<div class="d-flex gap-2 mb-3 flex-wrap">
+  {% for s, label in [('en_attente','En attente'), ('valide','Validés'), ('refuse','Refusés'), ('retour','Retour'), ('tous','Tous')] %}
+  <a href="?statut={{ s }}" class="btn btn-sm {{ 'btn-primary' if statut_filtre == s else 'btn-outline-secondary' }}">
+    {{ label }}
+    {% if s in counts and counts[s] > 0 %}
+    <span class="badge {{ 'bg-light text-dark' if statut_filtre == s else 'bg-secondary' }} ms-1">{{ counts[s] }}</span>
+    {% endif %}
+  </a>
+  {% endfor %}
+</div>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr><th>N° Chèque</th><th>Montant</th><th>Bénéficiaire</th><th>Banque</th><th>Image</th><th>Statut</th><th>Date</th><th>Action</th></tr>
+      </thead>
+      <tbody>
+        {% for c in cheques %}
+        <tr>
+          <td class="fw-semibold">{{ c.numero }}</td>
+          <td class="fw-bold">{{ "{:,.0f}".format(c.montant) }} XOF</td>
+          <td>{{ c.beneficiaire or '—' }}</td>
+          <td>{{ c.banque or '—' }}</td>
+          <td>
+            {% if c.image_path %}
+            <img src="/uploads/{{ c.image_path }}" class="cheque-thumb"
+                 data-bs-toggle="modal" data-bs-target="#imgModal"
+                 data-src="/uploads/{{ c.image_path }}" alt="chèque">
+            {% else %}<span class="text-muted">—</span>{% endif %}
+          </td>
+          <td><span class="badge badge-{{ c.statut.value }} rounded-pill px-2">{{ c.statut.value.replace('_',' ').title() }}</span></td>
+          <td class="text-muted small">{{ c.created_at.strftime('%d/%m/%Y') }}</td>
+          <td>
+            <a href="{{ url_for('gestionnaire.detail_cheque', cheque_id=c.id) }}" class="btn btn-sm btn-primary py-0 px-2">
+              {% if c.statut.value == 'en_attente' %}<i class="bi bi-pencil-square me-1"></i>Traiter{% else %}Voir{% endif %}
+            </a>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" class="text-center text-muted py-5">Aucun chèque</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal aperçu image -->
+<div class="modal fade" id="imgModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h6 class="modal-title">Aperçu du chèque</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body text-center p-2">
+        <img id="modalImg" src="" class="cheque-img-full">
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.querySelectorAll('.cheque-thumb').forEach(img => {
+    img.addEventListener('click', () => { document.getElementById('modalImg').src = img.dataset.src; });
+  });
+</script>
+{% endblock %}

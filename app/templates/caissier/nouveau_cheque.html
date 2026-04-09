@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block title %}Nouveau Chèque{% endblock %}
+{% block page_title %}<i class="bi bi-plus-circle me-2"></i>Enregistrer un chèque{% endblock %}
+
+{% block sidebar %}
+<div class="sidebar">
+  <div class="brand">🏦 Bank<span>Digital</span></div>
+  <nav class="mt-2">
+    <div class="nav-section">Menu</div>
+    <a href="{{ url_for('caissier.dashboard') }}"><i class="bi bi-speedometer2"></i>Dashboard</a>
+    <a href="{{ url_for('caissier.nouveau_cheque') }}" class="active"><i class="bi bi-plus-circle"></i>Nouveau chèque</a>
+    <a href="{{ url_for('caissier.cheques') }}"><i class="bi bi-file-earmark-text"></i>Mes chèques</a>
+    <div class="nav-section">Remises</div>
+    <a href="{{ url_for('caissier.remises') }}"><i class="bi bi-collection"></i>Remises clients</a>
+  </nav>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header">Informations du chèque</div>
+      <div class="card-body p-4">
+        <form method="POST" enctype="multipart/form-data" id="chequeForm">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">N° Chèque <span class="text-danger">*</span></label>
+              <input type="text" name="numero" class="form-control" placeholder="Ex: 0012345" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Montant (XOF) <span class="text-danger">*</span></label>
+              <input type="number" name="montant" step="1" min="1" class="form-control" placeholder="Ex: 150000" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Banque émettrice</label>
+              <input type="text" name="banque" class="form-control" placeholder="Ex: SGBCI, BICICI...">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Bénéficiaire</label>
+              <input type="text" name="beneficiaire" class="form-control" placeholder="Nom du bénéficiaire">
+            </div>
+
+            <!-- Zone scan / upload image -->
+            <div class="col-12">
+              <label class="form-label fw-semibold">Photo / Scan du chèque</label>
+              <div id="dropZone" class="border border-2 border-dashed rounded-3 p-4 text-center"
+                   style="cursor:pointer; border-color:#CBD5E1 !important; background:#F8FAFC; transition:.2s"
+                   onclick="document.getElementById('imageInput').click()"
+                   ondragover="event.preventDefault(); this.style.borderColor='#1B3A6B'"
+                   ondragleave="this.style.borderColor='#CBD5E1'"
+                   ondrop="handleDrop(event)">
+                <div id="dropPlaceholder">
+                  <i class="bi bi-camera fs-2 text-muted"></i>
+                  <p class="mb-1 mt-2 text-muted">Glissez l'image ici ou <strong>cliquez pour parcourir</strong></p>
+                  <p class="text-muted small">JPG, PNG, PDF — max 10 Mo</p>
+                  <button type="button" class="btn btn-outline-primary btn-sm mt-1" onclick="event.stopPropagation(); startCamera()">
+                    <i class="bi bi-camera-video me-1"></i>Utiliser la caméra
+                  </button>
+                </div>
+                <div id="previewContainer" class="d-none">
+                  <img id="previewImg" class="cheque-img-full mb-2" style="max-height:220px">
+                  <br>
+                  <button type="button" class="btn btn-sm btn-outline-danger" onclick="clearImage(event)">
+                    <i class="bi bi-x-circle me-1"></i>Supprimer
+                  </button>
+                </div>
+              </div>
+              <input type="file" id="imageInput" name="image" accept="image/*,application/pdf" class="d-none">
+
+              <!-- Caméra live -->
+              <div id="cameraSection" class="d-none mt-3">
+                <video id="cameraVideo" class="w-100 rounded-3" style="max-height:260px; background:#000" autoplay></video>
+                <div class="d-flex gap-2 mt-2">
+                  <button type="button" class="btn btn-success" onclick="capturePhoto()"><i class="bi bi-camera me-1"></i>Capturer</button>
+                  <button type="button" class="btn btn-outline-secondary" onclick="stopCamera()">Annuler</button>
+                </div>
+                <canvas id="captureCanvas" class="d-none"></canvas>
+              </div>
+            </div>
+
+            <div class="col-12 d-flex gap-2 justify-content-end pt-2">
+              <a href="{{ url_for('caissier.cheques') }}" class="btn btn-outline-secondary">Annuler</a>
+              <button type="submit" class="btn btn-primary px-4">
+                <i class="bi bi-send me-2"></i>Soumettre au gestionnaire
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const imageInput = document.getElementById('imageInput');
+  const previewImg = document.getElementById('previewImg');
+  const previewContainer = document.getElementById('previewContainer');
+  const dropPlaceholder = document.getElementById('dropPlaceholder');
+  let cameraStream = null;
+
+  imageInput.addEventListener('change', e => showPreview(e.target.files[0]));
+
+  function showPreview(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      previewImg.src = ev.target.result;
+      previewContainer.classList.remove('d-none');
+      dropPlaceholder.classList.add('d-none');
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function clearImage(e) {
+    e.stopPropagation();
+    imageInput.value = '';
+    previewContainer.classList.add('d-none');
+    dropPlaceholder.classList.remove('d-none');
+  }
+
+  function handleDrop(e) {
+    e.preventDefault();
+    document.getElementById('dropZone').style.borderColor = '#CBD5E1';
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      imageInput.files = dt.files;
+      showPreview(file);
+    }
+  }
+
+  async function startCamera() {
+    try {
+      cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      document.getElementById('cameraVideo').srcObject = cameraStream;
+      document.getElementById('cameraSection').classList.remove('d-none');
+    } catch(err) {
+      alert('Impossible d\'accéder à la caméra : ' + err.message);
+    }
+  }
+
+  function capturePhoto() {
+    const video = document.getElementById('cameraVideo');
+    const canvas = document.getElementById('captureCanvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    canvas.toBlob(blob => {
+      const file = new File([blob], 'cheque_capture.jpg', { type: 'image/jpeg' });
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      imageInput.files = dt.files;
+      showPreview(file);
+      stopCamera();
+    }, 'image/jpeg', 0.9);
+  }
+
+  function stopCamera() {
+    if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; }
+    document.getElementById('cameraSection').classList.add('d-none');
+  }
+</script>
+{% endblock %}

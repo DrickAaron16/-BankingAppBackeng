@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Mes Chèques{% endblock %}
+{% block page_title %}<i class="bi bi-file-earmark-text me-2"></i>Mes chèques{% endblock %}
+
+{% block sidebar %}
+<div class="sidebar">
+  <div class="brand">🏦 Bank<span>Digital</span></div>
+  <nav class="mt-2">
+    <div class="nav-section">Menu</div>
+    <a href="{{ url_for('caissier.dashboard') }}"><i class="bi bi-speedometer2"></i>Dashboard</a>
+    <a href="{{ url_for('caissier.nouveau_cheque') }}"><i class="bi bi-plus-circle"></i>Nouveau chèque</a>
+    <a href="{{ url_for('caissier.cheques') }}" class="active"><i class="bi bi-file-earmark-text"></i>Mes chèques</a>
+    <div class="nav-section">Remises</div>
+    <a href="{{ url_for('caissier.remises') }}"><i class="bi bi-collection"></i>Remises clients</a>
+  </nav>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <!-- Filtres statut -->
+  <div class="d-flex gap-2 flex-wrap">
+    {% for s, label in [('tous','Tous'), ('en_attente','En attente'), ('valide','Validés'), ('refuse','Refusés'), ('retour','Retour')] %}
+    <a href="?statut={{ s }}" class="btn btn-sm {{ 'btn-primary' if statut_filtre == s else 'btn-outline-secondary' }}">{{ label }}</a>
+    {% endfor %}
+  </div>
+  <a href="{{ url_for('caissier.nouveau_cheque') }}" class="btn btn-primary btn-sm">
+    <i class="bi bi-plus-circle me-1"></i>Nouveau
+  </a>
+</div>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th>N° Chèque</th><th>Montant</th><th>Bénéficiaire</th><th>Banque</th>
+          <th>Image</th><th>Statut</th><th>Commentaire</th><th>Date</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in cheques %}
+        <tr>
+          <td class="fw-semibold">{{ c.numero }}</td>
+          <td>{{ "{:,.0f}".format(c.montant) }} XOF</td>
+          <td>{{ c.beneficiaire or '—' }}</td>
+          <td>{{ c.banque or '—' }}</td>
+          <td>
+            {% if c.image_path %}
+            <img src="/uploads/{{ c.image_path }}" class="cheque-thumb"
+                 data-bs-toggle="modal" data-bs-target="#imgModal"
+                 data-src="/uploads/{{ c.image_path }}" alt="chèque">
+            {% else %}<span class="text-muted">—</span>{% endif %}
+          </td>
+          <td><span class="badge badge-{{ c.statut.value }} rounded-pill px-2">{{ c.statut.value.replace('_',' ').title() }}</span></td>
+          <td class="text-muted small" style="max-width:160px">{{ c.commentaire or '—' }}</td>
+          <td class="text-muted small">{{ c.created_at.strftime('%d/%m/%Y') }}</td>
+          <td><a href="{{ url_for('caissier.detail_cheque', cheque_id=c.id) }}" class="btn btn-sm btn-outline-secondary py-0 px-2">Voir</a></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="9" class="text-center text-muted py-5">Aucun chèque trouvé</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal image -->
+<div class="modal fade" id="imgModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h6 class="modal-title">Aperçu du chèque</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body text-center p-2">
+        <img id="modalImg" src="" class="cheque-img-full">
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.querySelectorAll('.cheque-thumb').forEach(img => {
+    img.addEventListener('click', () => {
+      document.getElementById('modalImg').src = img.dataset.src;
+    });
+  });
+</script>
+{% endblock %}

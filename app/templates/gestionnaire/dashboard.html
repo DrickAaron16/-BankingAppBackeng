@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block title %}Dashboard Gestionnaire{% endblock %}
+{% block page_title %}<i class="bi bi-speedometer2 me-2"></i>Tableau de bord{% endblock %}
+
+{% block sidebar %}
+<div class="sidebar">
+  <div class="brand">🏦 Bank<span>Digital</span></div>
+  <nav class="mt-2">
+    <div class="nav-section">Menu</div>
+    <a href="{{ url_for('gestionnaire.dashboard') }}" class="active"><i class="bi bi-speedometer2"></i>Dashboard</a>
+    <a href="{{ url_for('gestionnaire.notifications') }}">
+      <i class="bi bi-bell"></i>Notifications
+      {% if notifs %}<span class="notif-dot"></span>{% endif %}
+    </a>
+    <div class="nav-section">Chèques</div>
+    <a href="{{ url_for('gestionnaire.cheques') }}"><i class="bi bi-file-earmark-text"></i>Valider chèques</a>
+    <div class="nav-section">Remises</div>
+    <a href="{{ url_for('gestionnaire.remises') }}"><i class="bi bi-collection"></i>Valider remises</a>
+  </nav>
+</div>
+{% endblock %}
+
+{% block topbar_extra %}
+{% if notifs %}
+<a href="{{ url_for('gestionnaire.notifications') }}" class="btn btn-sm btn-outline-danger position-relative">
+  <i class="bi bi-bell-fill"></i>
+  <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size:.65rem">
+    {{ notifs|length }}
+  </span>
+</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<!-- Stats -->
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-xl-3">
+    <div class="card stat-card orange p-3">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <div class="text-muted small mb-1">Chèques en attente</div>
+          <div class="fs-3 fw-bold">{{ stats.cheques_en_attente }}</div>
+          <a href="{{ url_for('gestionnaire.cheques') }}?statut=en_attente" class="small text-warning">Traiter →</a>
+        </div>
+        <i class="bi bi-hourglass-split stat-icon text-warning"></i>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="card stat-card green p-3">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <div class="text-muted small mb-1">Chèques validés</div>
+          <div class="fs-3 fw-bold">{{ stats.cheques_valides }}</div>
+        </div>
+        <i class="bi bi-check-circle stat-icon text-success"></i>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="card stat-card blue p-3">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <div class="text-muted small mb-1">Remises en attente</div>
+          <div class="fs-3 fw-bold">{{ stats.remises_en_attente }}</div>
+          <a href="{{ url_for('gestionnaire.remises') }}?statut=en_attente" class="small text-primary">Traiter →</a>
+        </div>
+        <i class="bi bi-collection stat-icon text-primary"></i>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="card stat-card red p-3">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <div class="text-muted small mb-1">Total clients</div>
+          <div class="fs-3 fw-bold">{{ stats.total_clients }}</div>
+        </div>
+        <i class="bi bi-people stat-icon text-danger"></i>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <!-- Derniers chèques -->
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Chèques récents à traiter</span>
+        <a href="{{ url_for('gestionnaire.cheques') }}" class="btn btn-sm btn-outline-primary">Voir tout</a>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead><tr><th>N° Chèque</th><th>Montant</th><th>Bénéficiaire</th><th>Statut</th><th>Date</th><th></th></tr></thead>
+          <tbody>
+            {% for c in derniers_cheques %}
+            <tr>
+              <td class="fw-semibold">{{ c.numero }}</td>
+              <td>{{ "{:,.0f}".format(c.montant) }} XOF</td>
+              <td>{{ c.beneficiaire or '—' }}</td>
+              <td><span class="badge badge-{{ c.statut.value }} rounded-pill px-2">{{ c.statut.value.replace('_',' ').title() }}</span></td>
+              <td class="text-muted small">{{ c.created_at.strftime('%d/%m/%Y') }}</td>
+              <td><a href="{{ url_for('gestionnaire.detail_cheque', cheque_id=c.id) }}" class="btn btn-sm btn-outline-primary py-0 px-2">Traiter</a></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="text-center text-muted py-4">Aucun chèque</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notifications récentes -->
+  <div class="col-lg-4">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Notifications</span>
+        <a href="{{ url_for('gestionnaire.notifications') }}" class="btn btn-sm btn-outline-secondary">Toutes</a>
+      </div>
+      <div class="list-group list-group-flush">
+        {% for n in notifs[:5] %}
+        <div class="list-group-item px-3 py-2">
+          <div class="d-flex gap-2 align-items-start">
+            <i class="bi bi-bell-fill text-warning mt-1" style="font-size:.8rem"></i>
+            <div>
+              <div style="font-size:.85rem">{{ n.message }}</div>
+              <div class="text-muted" style="font-size:.75rem">{{ n.created_at.strftime('%d/%m %H:%M') }}</div>
+            </div>
+          </div>
+        </div>
+        {% else %}
+        <div class="list-group-item text-center text-muted py-4">Aucune notification</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

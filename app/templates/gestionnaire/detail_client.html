@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}Client {{ client.prenom }} {{ client.nom }}{% endblock %}
+{% block page_title %}<i class="bi bi-person me-2"></i>{{ client.prenom }} {{ client.nom }}{% endblock %}
+
+{% block sidebar %}
+<div class="sidebar">
+  <div class="brand">🏦 Bank<span>Digital</span></div>
+  <nav class="mt-2">
+    <div class="nav-section">Menu</div>
+    <a href="{{ url_for('gestionnaire.dashboard') }}"><i class="bi bi-speedometer2"></i>Dashboard</a>
+    <a href="{{ url_for('gestionnaire.notifications') }}"><i class="bi bi-bell"></i>Notifications</a>
+    <div class="nav-section">Opérations</div>
+    <a href="{{ url_for('gestionnaire.cheques') }}"><i class="bi bi-file-earmark-text"></i>Chèques</a>
+    <a href="{{ url_for('gestionnaire.remises') }}"><i class="bi bi-collection"></i>Remises</a>
+    <div class="nav-section">Clients</div>
+    <a href="{{ url_for('gestionnaire.clients') }}" class="active"><i class="bi bi-people"></i>Clients & Comptes</a>
+  </nav>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <a href="{{ url_for('gestionnaire.clients') }}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i>Retour
+  </a>
+</div>
+
+<div class="row g-3">
+  <!-- Infos client -->
+  <div class="col-lg-4">
+    <div class="card p-4">
+      <div class="text-center mb-3">
+        <div class="rounded-circle bg-primary d-inline-flex align-items-center justify-content-center text-white fw-bold"
+             style="width:64px;height:64px;font-size:1.4rem">
+          {{ client.prenom[0] }}{{ client.nom[0] }}
+        </div>
+        <h5 class="mt-2 mb-0">{{ client.prenom }} {{ client.nom }}</h5>
+        <span class="text-muted small">Client</span>
+      </div>
+      <table class="table table-borderless table-sm mb-0">
+        <tr><td class="text-muted">Email</td><td>{{ client.email }}</td></tr>
+        <tr><td class="text-muted">Téléphone</td><td>{{ client.telephone or '—' }}</td></tr>
+        <tr><td class="text-muted">Inscrit le</td><td>{{ client.created_at.strftime('%d/%m/%Y') }}</td></tr>
+        <tr><td class="text-muted">Comptes</td><td><strong>{{ comptes|length }}</strong></td></tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- Comptes existants + création -->
+  <div class="col-lg-8">
+    <!-- Liste des comptes -->
+    <div class="card mb-3">
+      <div class="card-header">Comptes bancaires</div>
+      {% if comptes %}
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead><tr><th>N° Compte</th><th>Solde</th><th>Devise</th><th>Ouvert le</th></tr></thead>
+          <tbody>
+            {% for c in comptes %}
+            <tr>
+              <td class="fw-semibold font-monospace">{{ c.numero }}</td>
+              <td class="fw-bold text-primary">{{ "{:,.0f}".format(c.solde) }}</td>
+              <td>{{ c.devise }}</td>
+              <td class="text-muted small">{{ c.created_at.strftime('%d/%m/%Y') }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="p-4 text-center text-muted">
+        <i class="bi bi-credit-card fs-2 d-block mb-2"></i>
+        Ce client n'a pas encore de compte bancaire.
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Formulaire ouverture de compte -->
+    <div class="card p-4 border-primary" style="border-width:2px !important">
+      <h6 class="fw-bold text-primary mb-3">
+        <i class="bi bi-plus-circle me-2"></i>Ouvrir un nouveau compte
+      </h6>
+      <form method="POST" action="{{ url_for('gestionnaire.creer_compte', client_id=client.id) }}">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">Type de compte</label>
+            <select name="type_compte" class="form-select">
+              <option value="courant" selected>Compte courant</option>
+              <option value="epargne">Compte épargne</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">Solde initial (optionnel)</label>
+            <div class="input-group">
+              <input type="number" name="solde_initial" class="form-control" value="0" min="0" step="1000">
+              <span class="input-group-text">XOF</span>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">Devise</label>
+            <select name="devise" class="form-select">
+              <option value="XOF" selected>XOF (Franc CFA)</option>
+              <option value="EUR">EUR (Euro)</option>
+              <option value="USD">USD (Dollar)</option>
+            </select>
+          </div>
+          <div class="col-12">
+            <div class="alert alert-info py-2 mb-0" style="font-size:.85rem">
+              <i class="bi bi-info-circle me-1"></i>
+              Un numéro de compte unique sera généré automatiquement. Le client sera notifié.
+            </div>
+          </div>
+          <div class="col-12">
+            <button type="submit" class="btn btn-primary"
+                    onclick="return confirm('Confirmer l\'ouverture du compte pour {{ client.prenom }} {{ client.nom }} ?')">
+              <i class="bi bi-bank me-2"></i>Ouvrir le compte
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

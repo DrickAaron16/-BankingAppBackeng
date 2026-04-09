@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block title %}Remise {{ remise.reference }}{% endblock %}
+{% block page_title %}<i class="bi bi-collection me-2"></i>Remise {{ remise.reference }}{% endblock %}
+
+{% block sidebar %}
+<div class="sidebar">
+  <div class="brand">🏦 Bank<span>Digital</span></div>
+  <nav class="mt-2">
+    <div class="nav-section">Menu</div>
+    <a href="{{ url_for('caissier.dashboard') }}"><i class="bi bi-speedometer2"></i>Dashboard</a>
+    <a href="{{ url_for('caissier.nouveau_cheque') }}"><i class="bi bi-plus-circle"></i>Nouveau chèque</a>
+    <a href="{{ url_for('caissier.cheques') }}"><i class="bi bi-file-earmark-text"></i>Mes chèques</a>
+    <div class="nav-section">Remises</div>
+    <a href="{{ url_for('caissier.remises') }}" class="active"><i class="bi bi-collection"></i>Remises clients</a>
+  </nav>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="mb-3 d-flex justify-content-between align-items-center">
+  <a href="{{ url_for('caissier.remises') }}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i>Retour
+  </a>
+  {% if remise.statut.value == 'en_attente' and not remise.caissier_id %}
+  <form method="POST" action="{{ url_for('caissier.confirmer_remise', remise_id=remise.id) }}"
+        onsubmit="return confirm('Confirmer la réception physique de cette remise ?')">
+    <button class="btn btn-success">
+      <i class="bi bi-check2-circle me-2"></i>Confirmer le dépôt physique
+    </button>
+  </form>
+  {% endif %}
+</div>
+
+<div class="row g-3">
+  <!-- Résumé -->
+  <div class="col-lg-4">
+    <div class="card p-4">
+      <h6 class="fw-bold mb-3">Résumé de la remise</h6>
+      <table class="table table-borderless table-sm mb-0">
+        <tr><td class="text-muted">Référence</td><td><code>{{ remise.reference }}</code></td></tr>
+        <tr><td class="text-muted">Client</td><td class="fw-semibold">{{ remise.client.prenom }} {{ remise.client.nom }}</td></tr>
+        <tr><td class="text-muted">Téléphone</td><td>{{ remise.client.telephone or '—' }}</td></tr>
+        <tr><td class="text-muted">Nb chèques</td><td>{{ remise.details|length }}</td></tr>
+        <tr>
+          <td class="text-muted">Montant total</td>
+          <td class="fw-bold text-primary">
+            {% set total = remise.details | sum(attribute='montant') %}
+            {{ "{:,.0f}".format(total) }} XOF
+          </td>
+        </tr>
+        <tr>
+          <td class="text-muted">Statut</td>
+          <td><span class="badge badge-{{ remise.statut.value }} rounded-pill px-2">{{ remise.statut.value.replace('_',' ').title() }}</span></td>
+        </tr>
+        <tr><td class="text-muted">Date</td><td>{{ remise.created_at.strftime('%d/%m/%Y %H:%M') }}</td></tr>
+      </table>
+
+      {% if remise.qr_code_path %}
+      <hr>
+      <div class="text-center">
+        <p class="text-muted small mb-2">QR Code bordereau</p>
+        <img src="/uploads/{{ remise.qr_code_path }}" style="width:140px">
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Chèques -->
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header">Chèques inclus ({{ remise.details|length }})</div>
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead><tr><th>#</th><th>N° Chèque</th><th>Montant</th><th>Émetteur</th><th>Tél</th><th>Compte émetteur</th><th>Banque</th><th>Bénéficiaire</th><th>Image</th></tr></thead>
+          <tbody>
+            {% for d in remise.details %}
+            <tr>
+              <td class="text-muted">{{ loop.index }}</td>
+              <td class="fw-semibold">{{ d.numero_cheque }}</td>
+              <td>{{ "{:,.0f}".format(d.montant) }} XOF</td>
+              <td>{{ d.emetteur or '—' }}</td>
+              <td>{{ d.telephone_emetteur or '—' }}</td>
+              <td><code>{{ d.compte_emetteur or '—' }}</code></td>
+              <td>{{ d.banque or '—' }}</td>
+              <td>{{ d.beneficiaire or '—' }}</td>
+              <td>
+                {% if d.image_path %}
+                <img src="/uploads/{{ d.image_path }}" class="cheque-thumb"
+                     data-bs-toggle="modal" data-bs-target="#imgModal"
+                     data-src="/uploads/{{ d.image_path }}">
+                {% else %}—{% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+            <tr>
+              <td class="text-muted">{{ loop.index }}</td>
+              <td class="fw-semibold">{{ d.numero_cheque }}</td>
+              <td>{{ "{:,.0f}".format(d.montant) }} XOF</td>
+              <td>{{ d.banque or '—' }}</td>
+              <td>{{ d.beneficiaire or '—' }}</td>
+              <td>
+                {% if d.image_path %}
+                <img src="/uploads/{{ d.image_path }}" class="cheque-thumb"
+                     data-bs-toggle="modal" data-bs-target="#imgModal"
+                     data-src="/uploads/{{ d.image_path }}">
+                {% else %}—{% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal image -->
+<div class="modal fade" id="imgModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h6 class="modal-title">Aperçu du chèque</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body text-center p-2">
+        <img id="modalImg" src="" class="cheque-img-full">
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.querySelectorAll('.cheque-thumb').forEach(img => {
+    img.addEventListener('click', () => { document.getElementById('modalImg').src = img.dataset.src; });
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Notifications{% endblock %}
+{% block page_title %}<i class="bi bi-bell me-2"></i>Notifications{% endblock %}
+
+{% block sidebar %}
+<div class="sidebar">
+  <div class="brand">🏦 Bank<span>Digital</span></div>
+  <nav class="mt-2">
+    <div class="nav-section">Menu</div>
+    <a href="{{ url_for('gestionnaire.dashboard') }}"><i class="bi bi-speedometer2"></i>Dashboard</a>
+    <a href="{{ url_for('gestionnaire.notifications') }}" class="active"><i class="bi bi-bell"></i>Notifications</a>
+    <div class="nav-section">Chèques</div>
+    <a href="{{ url_for('gestionnaire.cheques') }}"><i class="bi bi-file-earmark-text"></i>Valider chèques</a>
+    <div class="nav-section">Remises</div>
+    <a href="{{ url_for('gestionnaire.remises') }}"><i class="bi bi-collection"></i>Valider remises</a>
+  </nav>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-header">Toutes les notifications ({{ notifs|length }})</div>
+  <div class="list-group list-group-flush">
+    {% for n in notifs %}
+    <div class="list-group-item px-4 py-3 {{ '' if n.lu else 'bg-light' }}">
+      <div class="d-flex gap-3 align-items-start">
+        <div class="mt-1">
+          {% if n.lu %}
+          <i class="bi bi-bell text-muted"></i>
+          {% else %}
+          <i class="bi bi-bell-fill text-warning"></i>
+          {% endif %}
+        </div>
+        <div class="flex-grow-1">
+          <div class="{{ '' if n.lu else 'fw-semibold' }}">{{ n.message }}</div>
+          <div class="text-muted small mt-1">{{ n.created_at.strftime('%d/%m/%Y à %H:%M') }}</div>
+        </div>
+        {% if not n.lu %}
+        <span class="badge bg-warning text-dark">Nouveau</span>
+        {% endif %}
+      </div>
+    </div>
+    {% else %}
+    <div class="list-group-item text-center text-muted py-5">
+      <i class="bi bi-bell-slash fs-2 d-block mb-2"></i>
+      Aucune notification
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Remises Clients{% endblock %}
+{% block page_title %}<i class="bi bi-collection me-2"></i>Remises clients{% endblock %}
+
+{% block sidebar %}
+<div class="sidebar">
+  <div class="brand">🏦 Bank<span>Digital</span></div>
+  <nav class="mt-2">
+    <div class="nav-section">Menu</div>
+    <a href="{{ url_for('caissier.dashboard') }}"><i class="bi bi-speedometer2"></i>Dashboard</a>
+    <a href="{{ url_for('caissier.nouveau_cheque') }}"><i class="bi bi-plus-circle"></i>Nouveau chèque</a>
+    <a href="{{ url_for('caissier.cheques') }}"><i class="bi bi-file-earmark-text"></i>Mes chèques</a>
+    <div class="nav-section">Remises</div>
+    <a href="{{ url_for('caissier.remises') }}" class="active"><i class="bi bi-collection"></i>Remises clients</a>
+  </nav>
+</div>
+{% endblock %}
+
+{% block topbar_extra %}
+<!-- Recherche par QR -->
+<div class="input-group input-group-sm" style="width:280px">
+  <input type="text" id="qrSearch" class="form-control" placeholder="Référence QR code...">
+  <button class="btn btn-outline-primary" onclick="searchQR()"><i class="bi bi-qr-code-scan"></i></button>
+</div>
+{% endblock %}
+
+{% block content %}
+<!-- Filtres -->
+<div class="d-flex gap-2 mb-3 flex-wrap">
+  {% for s, label in [('en_attente','En attente'), ('tous','Toutes'), ('valide','Validées'), ('refuse','Refusées')] %}
+  <a href="?statut={{ s }}" class="btn btn-sm {{ 'btn-primary' if statut_filtre == s else 'btn-outline-secondary' }}">{{ label }}</a>
+  {% endfor %}
+</div>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr><th>Référence</th><th>Client</th><th>Chèques</th><th>Statut</th><th>Date</th><th>Action</th></tr>
+      </thead>
+      <tbody>
+        {% for r in remises %}
+        <tr>
+          <td><code class="text-primary">{{ r.reference }}</code></td>
+          <td>{{ r.client.prenom }} {{ r.client.nom }}</td>
+          <td><span class="badge bg-secondary">{{ r.details|length }}</span></td>
+          <td><span class="badge badge-{{ r.statut.value }} rounded-pill px-2">{{ r.statut.value.replace('_',' ').title() }}</span></td>
+          <td class="text-muted small">{{ r.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
+          <td>
+            <a href="{{ url_for('caissier.detail_remise', remise_id=r.id) }}" class="btn btn-sm btn-outline-primary py-0 px-2 me-1">Voir</a>
+            {% if r.statut.value == 'en_attente' and not r.caissier_id %}
+            <form method="POST" action="{{ url_for('caissier.confirmer_remise', remise_id=r.id) }}" class="d-inline"
+                  onsubmit="return confirm('Confirmer la réception physique de cette remise ?')">
+              <button class="btn btn-sm btn-success py-0 px-2">
+                <i class="bi bi-check2 me-1"></i>Confirmer dépôt
+              </button>
+            </form>
+            {% elif r.caissier_id %}
+            <span class="text-muted small"><i class="bi bi-check-circle-fill text-success me-1"></i>Confirmée</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="text-center text-muted py-5">Aucune remise</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Alert QR result -->
+<div id="qrResult" class="d-none mt-3"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function searchQR() {
+    const ref = document.getElementById('qrSearch').value.trim();
+    if (!ref) return;
+    fetch(`{{ url_for('caissier.lookup_remise') }}?ref=${encodeURIComponent(ref)}`)
+      .then(r => r.json())
+      .then(data => {
+        const div = document.getElementById('qrResult');
+        div.classList.remove('d-none');
+        if (data.error) {
+          div.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+        } else {
+          div.innerHTML = `
+            <div class="alert alert-success d-flex justify-content-between align-items-center">
+              <div>
+                <strong>${data.reference}</strong> — Client : ${data.client} — ${data.nb_cheques} chèque(s)
+                <span class="badge badge-${data.statut} ms-2">${data.statut.replace('_',' ')}</span>
+              </div>
+              <a href="${data.url}" class="btn btn-sm btn-success">Ouvrir</a>
+            </div>`;
+        }
+      });
+  }
+  document.getElementById('qrSearch').addEventListener('keydown', e => { if (e.key === 'Enter') searchQR(); });
+</script>
+{% endblock %}

@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Chèque #{{ cheque.numero }}{% endblock %}
+{% block page_title %}<i class="bi bi-file-earmark-text me-2"></i>Chèque #{{ cheque.numero }}{% endblock %}
+
+{% block sidebar %}
+<div class="sidebar">
+  <div class="brand">🏦 Bank<span>Digital</span></div>
+  <nav class="mt-2">
+    <div class="nav-section">Menu</div>
+    <a href="{{ url_for('caissier.dashboard') }}"><i class="bi bi-speedometer2"></i>Dashboard</a>
+    <a href="{{ url_for('caissier.nouveau_cheque') }}"><i class="bi bi-plus-circle"></i>Nouveau chèque</a>
+    <a href="{{ url_for('caissier.cheques') }}" class="active"><i class="bi bi-file-earmark-text"></i>Mes chèques</a>
+    <div class="nav-section">Remises</div>
+    <a href="{{ url_for('caissier.remises') }}"><i class="bi bi-collection"></i>Remises clients</a>
+  </nav>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <a href="{{ url_for('caissier.cheques') }}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i>Retour
+  </a>
+</div>
+
+<div class="row g-3">
+  <!-- Infos -->
+  <div class="col-lg-5">
+    <div class="card p-4">
+      <h6 class="fw-bold mb-3">Informations du chèque</h6>
+      <table class="table table-borderless table-sm mb-0">
+        <tr><td class="text-muted">N° Chèque</td><td class="fw-semibold">{{ cheque.numero }}</td></tr>
+        <tr><td class="text-muted">Montant</td><td class="fw-bold text-primary fs-5">{{ "{:,.0f}".format(cheque.montant) }} XOF</td></tr>
+        <tr><td class="text-muted">Banque</td><td>{{ cheque.banque or '—' }}</td></tr>
+        <tr><td class="text-muted">Bénéficiaire</td><td>{{ cheque.beneficiaire or '—' }}</td></tr>
+        <tr><td class="text-muted">Soumis le</td><td>{{ cheque.created_at.strftime('%d/%m/%Y à %H:%M') }}</td></tr>
+        <tr>
+          <td class="text-muted">Statut</td>
+          <td><span class="badge badge-{{ cheque.statut.value }} rounded-pill px-2">{{ cheque.statut.value.replace('_',' ').title() }}</span></td>
+        </tr>
+        {% if cheque.commentaire %}
+        <tr>
+          <td class="text-muted">Commentaire</td>
+          <td class="fst-italic">{{ cheque.commentaire }}</td>
+        </tr>
+        {% endif %}
+      </table>
+    </div>
+  </div>
+
+  <!-- Image -->
+  <div class="col-lg-7">
+    <div class="card p-4">
+      <h6 class="fw-bold mb-3">Image du chèque</h6>
+      {% if cheque.image_path %}
+      <img src="/uploads/{{ cheque.image_path }}" class="cheque-img-full w-100" style="max-height:400px; object-fit:contain">
+      {% else %}
+      <div class="text-center text-muted py-5">
+        <i class="bi bi-image fs-1"></i>
+        <p class="mt-2">Aucune image disponible</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

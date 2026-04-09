@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Validation Remises{% endblock %}
+{% block page_title %}<i class="bi bi-collection me-2"></i>Validation des remises{% endblock %}
+
+{% block sidebar %}
+<div class="sidebar">
+  <div class="brand">🏦 Bank<span>Digital</span></div>
+  <nav class="mt-2">
+    <div class="nav-section">Menu</div>
+    <a href="{{ url_for('gestionnaire.dashboard') }}"><i class="bi bi-speedometer2"></i>Dashboard</a>
+    <a href="{{ url_for('gestionnaire.notifications') }}"><i class="bi bi-bell"></i>Notifications</a>
+    <div class="nav-section">Chèques</div>
+    <a href="{{ url_for('gestionnaire.cheques') }}"><i class="bi bi-file-earmark-text"></i>Valider chèques</a>
+    <div class="nav-section">Remises</div>
+    <a href="{{ url_for('gestionnaire.remises') }}" class="active"><i class="bi bi-collection"></i>Valider remises</a>
+  </nav>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex gap-2 mb-3 flex-wrap">
+  {% for s, label in [('en_attente','En attente'), ('valide','Validées'), ('refuse','Refusées'), ('tous','Toutes')] %}
+  <a href="?statut={{ s }}" class="btn btn-sm {{ 'btn-primary' if statut_filtre == s else 'btn-outline-secondary' }}">
+    {{ label }}
+    {% if s in counts and counts[s] > 0 %}
+    <span class="badge {{ 'bg-light text-dark' if statut_filtre == s else 'bg-secondary' }} ms-1">{{ counts[s] }}</span>
+    {% endif %}
+  </a>
+  {% endfor %}
+</div>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr><th>Référence</th><th>Client</th><th>Chèques</th><th>Montant total</th><th>Statut</th><th>Date</th><th>Action</th></tr>
+      </thead>
+      <tbody>
+        {% for r in remises %}
+        {% set total = r.details | sum(attribute='montant') %}
+        <tr>
+          <td><code class="text-primary">{{ r.reference }}</code></td>
+          <td class="fw-semibold">{{ r.client.prenom }} {{ r.client.nom }}</td>
+          <td><span class="badge bg-secondary">{{ r.details|length }}</span></td>
+          <td class="fw-bold">{{ "{:,.0f}".format(total) }} XOF</td>
+          <td><span class="badge badge-{{ r.statut.value }} rounded-pill px-2">{{ r.statut.value.replace('_',' ').title() }}</span></td>
+          <td class="text-muted small">{{ r.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
+          <td>
+            <a href="{{ url_for('gestionnaire.detail_remise', remise_id=r.id) }}" class="btn btn-sm btn-primary py-0 px-2">
+              {% if r.statut.value == 'en_attente' %}<i class="bi bi-pencil-square me-1"></i>Traiter{% else %}Voir{% endif %}
+            </a>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="text-center text-muted py-5">Aucune remise</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

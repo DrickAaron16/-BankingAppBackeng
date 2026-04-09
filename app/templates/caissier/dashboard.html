@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Dashboard Caissier{% endblock %}
+{% block page_title %}<i class="bi bi-speedometer2 me-2"></i>Dashboard{% endblock %}
+
+{% block sidebar %}
+<div class="sidebar">
+  <div class="brand">🏦 Bank<span>Digital</span></div>
+  <nav class="mt-2">
+    <div class="nav-section">Menu</div>
+    <a href="{{ url_for('caissier.dashboard') }}" class="active"><i class="bi bi-speedometer2"></i>Dashboard</a>
+    <a href="{{ url_for('caissier.nouveau_cheque') }}"><i class="bi bi-plus-circle"></i>Nouveau chèque</a>
+    <a href="{{ url_for('caissier.cheques') }}"><i class="bi bi-file-earmark-text"></i>Mes chèques</a>
+    <div class="nav-section">Remises</div>
+    <a href="{{ url_for('caissier.remises') }}"><i class="bi bi-collection"></i>Remises clients</a>
+  </nav>
+</div>
+{% endblock %}
+
+{% block content %}
+<!-- Stats -->
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-xl-3">
+    <div class="card stat-card blue p-3">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <div class="text-muted small mb-1">Total chèques</div>
+          <div class="fs-3 fw-bold">{{ stats.mes_cheques_total }}</div>
+        </div>
+        <i class="bi bi-file-earmark-text stat-icon text-primary"></i>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="card stat-card orange p-3">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <div class="text-muted small mb-1">En attente</div>
+          <div class="fs-3 fw-bold">{{ stats.mes_cheques_attente }}</div>
+        </div>
+        <i class="bi bi-hourglass-split stat-icon text-warning"></i>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="card stat-card green p-3">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <div class="text-muted small mb-1">Validés</div>
+          <div class="fs-3 fw-bold">{{ stats.mes_cheques_valides }}</div>
+        </div>
+        <i class="bi bi-check-circle stat-icon text-success"></i>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="card stat-card red p-3">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <div class="text-muted small mb-1">Remises en attente</div>
+          <div class="fs-3 fw-bold">{{ stats.remises_attente }}</div>
+        </div>
+        <i class="bi bi-collection stat-icon text-danger"></i>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Derniers chèques + action rapide -->
+<div class="row g-3">
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Derniers chèques soumis</span>
+        <a href="{{ url_for('caissier.cheques') }}" class="btn btn-sm btn-outline-primary">Voir tout</a>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead><tr><th>N° Chèque</th><th>Montant</th><th>Bénéficiaire</th><th>Statut</th><th>Date</th><th></th></tr></thead>
+          <tbody>
+            {% for c in derniers_cheques %}
+            <tr>
+              <td class="fw-semibold">{{ c.numero }}</td>
+              <td>{{ "{:,.0f}".format(c.montant) }} XOF</td>
+              <td>{{ c.beneficiaire or '—' }}</td>
+              <td><span class="badge badge-{{ c.statut.value }} rounded-pill px-2">{{ c.statut.value.replace('_',' ').title() }}</span></td>
+              <td class="text-muted small">{{ c.created_at.strftime('%d/%m/%Y') }}</td>
+              <td><a href="{{ url_for('caissier.detail_cheque', cheque_id=c.id) }}" class="btn btn-xs btn-outline-secondary btn-sm py-0 px-2">Voir</a></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="text-center text-muted py-4">Aucun chèque</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card p-4 text-center">
+      <i class="bi bi-plus-circle-fill text-primary" style="font-size:3rem"></i>
+      <h6 class="mt-3 mb-1">Enregistrer un chèque</h6>
+      <p class="text-muted small mb-3">Saisissez et scannez un nouveau chèque à soumettre au gestionnaire.</p>
+      <a href="{{ url_for('caissier.nouveau_cheque') }}" class="btn btn-primary">Nouveau chèque</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

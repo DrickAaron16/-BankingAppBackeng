@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block title %}Chèque #{{ cheque.numero }}{% endblock %}
+{% block page_title %}<i class="bi bi-file-earmark-text me-2"></i>Chèque #{{ cheque.numero }}{% endblock %}
+
+{% block sidebar %}
+<div class="sidebar">
+  <div class="brand">🏦 Bank<span>Digital</span></div>
+  <nav class="mt-2">
+    <div class="nav-section">Menu</div>
+    <a href="{{ url_for('gestionnaire.dashboard') }}"><i class="bi bi-speedometer2"></i>Dashboard</a>
+    <a href="{{ url_for('gestionnaire.notifications') }}"><i class="bi bi-bell"></i>Notifications</a>
+    <div class="nav-section">Chèques</div>
+    <a href="{{ url_for('gestionnaire.cheques') }}" class="active"><i class="bi bi-file-earmark-text"></i>Valider chèques</a>
+    <div class="nav-section">Remises</div>
+    <a href="{{ url_for('gestionnaire.remises') }}"><i class="bi bi-collection"></i>Valider remises</a>
+  </nav>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <a href="{{ url_for('gestionnaire.cheques') }}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i>Retour à la liste
+  </a>
+</div>
+
+<div class="row g-3">
+  <!-- Image du chèque (priorité visuelle) -->
+  <div class="col-lg-7">
+    <div class="card p-4">
+      <h6 class="fw-bold mb-3"><i class="bi bi-image me-2"></i>Image du chèque</h6>
+      {% if cheque.image_path %}
+      <img src="/uploads/{{ cheque.image_path }}" class="cheque-img-full w-100"
+           style="max-height:420px; object-fit:contain; cursor:zoom-in"
+           onclick="document.getElementById('imgFull').classList.toggle('d-none')">
+      <p class="text-muted small mt-2 mb-0"><i class="bi bi-zoom-in me-1"></i>Cliquez pour agrandir</p>
+      <!-- Plein écran -->
+      <div id="imgFull" class="d-none position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
+           style="background:rgba(0,0,0,.85); z-index:9999; cursor:zoom-out"
+           onclick="this.classList.add('d-none')">
+        <img src="/uploads/{{ cheque.image_path }}" style="max-width:95vw; max-height:95vh; border-radius:8px">
+      </div>
+      {% else %}
+      <div class="text-center text-muted py-5 bg-light rounded-3">
+        <i class="bi bi-image fs-1"></i>
+        <p class="mt-2">Aucune image disponible</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Infos + décision -->
+  <div class="col-lg-5">
+    <!-- Infos -->
+    <div class="card p-4 mb-3">
+      <h6 class="fw-bold mb-3"><i class="bi bi-info-circle me-2"></i>Informations</h6>
+      <table class="table table-borderless table-sm mb-0">
+        <tr><td class="text-muted" style="width:40%">N° Chèque</td><td class="fw-semibold">{{ cheque.numero }}</td></tr>
+        <tr><td class="text-muted">Montant</td><td class="fw-bold text-primary fs-5">{{ "{:,.0f}".format(cheque.montant) }} XOF</td></tr>
+        <tr><td class="text-muted">Banque</td><td>{{ cheque.banque or '—' }}</td></tr>
+        <tr><td class="text-muted">Bénéficiaire</td><td>{{ cheque.beneficiaire or '—' }}</td></tr>
+        <tr><td class="text-muted">Soumis le</td><td>{{ cheque.created_at.strftime('%d/%m/%Y à %H:%M') }}</td></tr>
+        <tr>
+          <td class="text-muted">Statut actuel</td>
+          <td><span class="badge badge-{{ cheque.statut.value }} rounded-pill px-2">{{ cheque.statut.value.replace('_',' ').title() }}</span></td>
+        </tr>
+        {% if cheque.commentaire %}
+        <tr>
+          <td class="text-muted">Commentaire</td>
+          <td class="fst-italic text-muted">{{ cheque.commentaire }}</td>
+        </tr>
+        {% endif %}
+      </table>
+    </div>
+
+    <!-- Formulaire décision -->
+    {% if cheque.statut.value == 'en_attente' %}
+    <div class="card p-4 border-primary" style="border-width:2px !important">
+      <h6 class="fw-bold mb-3 text-primary"><i class="bi bi-pencil-square me-2"></i>Prendre une décision</h6>
+      <form method="POST" action="{{ url_for('gestionnaire.decision_cheque', cheque_id=cheque.id) }}">
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Décision <span class="text-danger">*</span></label>
+          <div class="d-flex gap-2">
+            <div class="form-check flex-fill">
+              <input class="form-check-input" type="radio" name="decision" id="dec_valide" value="valide" required>
+              <label class="form-check-label text-success fw-semibold" for="dec_valide">
+                <i class="bi bi-check-circle-fill me-1"></i>Valider
+              </label>
+            </div>
+            <div class="form-check flex-fill">
+              <input class="form-check-input" type="radio" name="decision" id="dec_refuse" value="refuse">
+              <label class="form-check-label text-danger fw-semibold" for="dec_refuse">
+                <i class="bi bi-x-circle-fill me-1"></i>Refuser
+              </label>
+            </div>
+            <div class="form-check flex-fill">
+              <input class="form-check-input" type="radio" name="decision" id="dec_retour" value="retour">
+              <label class="form-check-label text-secondary fw-semibold" for="dec_retour">
+                <i class="bi bi-arrow-return-left me-1"></i>Retour
+              </label>
+            </div>
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Commentaire</label>
+          <textarea name="commentaire" class="form-control" rows="3"
+                    placeholder="Motif de la décision (optionnel)..."></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary w-100"
+                onclick="return confirm('Confirmer cette décision ?')">
+          <i class="bi bi-send me-2"></i>Confirmer et notifier le caissier
+        </button>
+      </form>
+    </div>
+    {% else %}
+    <div class="card p-4 bg-light">
+      <div class="text-center text-muted">
+        <i class="bi bi-check2-all fs-2"></i>
+        <p class="mt-2 mb-0">Ce chèque a déjà été traité.</p>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
