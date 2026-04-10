@@ -131,19 +131,22 @@ def init_db():
 with app.app_context():
     init_db()
     # Créer le chef de caisse s'il n'existe pas encore
-    with app.app_context():
-        from app.models import Utilisateur, RoleEnum
-        if not Utilisateur.query.filter_by(email="chef@bank.com").first():
+    from app.models import Utilisateur, RoleEnum
+    if not Utilisateur.query.filter_by(email="chef@bank.com").first():
+        try:
             chef = Utilisateur(
                 nom="Kouassi", prenom="Jean",
                 email="chef@bank.com",
-                telephone="+22500000005",
+                telephone="+22500000099",
                 role=RoleEnum.chef_caisse
             )
             chef.set_password("chef123")
             db.session.add(chef)
             db.session.commit()
             print("✅ Compte chef de caisse créé : chef@bank.com / chef123")
+        except Exception as e:
+            db.session.rollback()
+            print(f"⚠ Chef caisse non créé : {e}")
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
