@@ -103,6 +103,9 @@ def decision_remise(remise_id):
     remise.commentaire = data.get("commentaire", "")
     db.session.commit()
 
-    notify(remise.client_id, f"Votre remise {remise.reference} a été {decision}e.")
+    label = "validée ✔" if decision == "valide" else "refusée ✘"
+    notify(remise.client_id,
+           f"🧾 Votre remise {remise.reference} a été {label}. {data.get('commentaire', '')}",
+           type="validation")
     log_action(user_id, f"REMISE_{decision.upper()}", details=f"Remise#{remise_id}")
     return jsonify(remise.to_dict()), 200

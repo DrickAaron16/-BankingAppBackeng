@@ -7,9 +7,13 @@ from decimal import Decimal
 
 transactions_bp = Blueprint("transactions", __name__)
 
+EMOJIS = {
+    "debit":  "📤",
+    "credit": "📥",
+    "info":   "ℹ️",
+}
 
 def _debit(compte, montant, type_tx, description, user_id, dest_id=None):
-    """Débite un compte et crée la transaction."""
     if compte.solde < montant:
         return None, "Solde insuffisant"
     compte.solde -= montant
@@ -24,11 +28,13 @@ def _debit(compte, montant, type_tx, description, user_id, dest_id=None):
     )
     db.session.add(tx)
     db.session.commit()
+    # Notifier le propriétaire du compte débité
+    notify(user_id,
+           f"📤 Débit de {montant:,.0f} {compte.devise} — {description} | Nouveau solde : {float(compte.solde):,.0f} {compte.devise}",
+           type="debit")
     log_action(user_id, type_tx.value.upper(), details=f"Ref:{tx.reference}")
     return tx, None
 
-
-# ─── Transfert bancaire ───────────────────────────────────────────────────────
 
 @transactions_bp.route("/transfert", methods=["POST"])
 @jwt_required()
@@ -49,11 +55,11 @@ def transfert():
 
     dest.solde += montant
     db.session.commit()
-    notify(dest.utilisateur_id, f"Vous avez reçu {montant:,.0f} {source.devise} depuis {source.numero}")
+    notify(dest.utilisateur_id,
+           f"📥 Crédit de {montant:,.0f} {source.devise} reçu depuis {source.numero} | Nouveau solde : {float(dest.solde):,.0f} {dest.devise}",
+           type="credit")
     return jsonify(tx.to_dict()), 201
 
-
-# ─── Mobile Money — envoi ─────────────────────────────────────────────────────
 
 @transactions_bp.route("/mobile-money/envoi", methods=["POST"])
 @jwt_required()
@@ -72,8 +78,6 @@ def mobile_money_envoi():
     return jsonify(tx.to_dict()), 201
 
 
-# ─── Mobile Money — retrait ───────────────────────────────────────────────────
-
 @transactions_bp.route("/mobile-money/retrait", methods=["POST"])
 @jwt_required()
 def mobile_money_retrait():
@@ -91,12 +95,9 @@ def mobile_money_retrait():
     return jsonify(tx.to_dict()), 201
 
 
-# ─── Mobile Money — dépôt ─────────────────────────────────────────────────────
-
 @transactions_bp.route("/mobile-money/depot", methods=["POST"])
 @jwt_required()
 def mobile_money_depot():
-    """Dépôt depuis Mobile Money vers le compte bancaire."""
     user_id = int(get_jwt_identity())
     data = request.get_json()
     compte = Compte.query.filter_by(id=data["compte_dest_id"], utilisateur_id=user_id).first_or_404()
@@ -115,11 +116,12 @@ def mobile_money_depot():
     )
     db.session.add(tx)
     db.session.commit()
+    notify(user_id,
+           f"📥 Dépôt {operateur} de {montant:,.0f} {compte.devise} crédité | Nouveau solde : {float(compte.solde):,.0f} {compte.devise}",
+           type="credit")
     log_action(user_id, "MOBILE_MONEY_DEPOT", details=f"Ref:{tx.reference}")
     return jsonify(tx.to_dict()), 201
 
-
-# ─── Paiement de facture ──────────────────────────────────────────────────────
 
 @transactions_bp.route("/facture", methods=["POST"])
 @jwt_required()
@@ -138,8 +140,6 @@ def paiement_facture():
     return jsonify(tx.to_dict()), 201
 
 
-# ─── Paiement de crédit ───────────────────────────────────────────────────────
-
 @transactions_bp.route("/credit", methods=["POST"])
 @jwt_required()
 def paiement_credit():
@@ -155,8 +155,6 @@ def paiement_credit():
         return jsonify({"error": err}), 400
     return jsonify(tx.to_dict()), 201
 
-
-# ─── Abonnement ───────────────────────────────────────────────────────────────
 
 @transactions_bp.route("/abonnement", methods=["POST"])
 @jwt_required()
@@ -174,8 +172,6 @@ def abonnement():
         return jsonify({"error": err}), 400
     return jsonify(tx.to_dict()), 201
 
-
-# ─── Rétrocompat ancien endpoint ─────────────────────────────────────────────
 
 @transactions_bp.route("/mobile-money", methods=["POST"])
 @jwt_required()

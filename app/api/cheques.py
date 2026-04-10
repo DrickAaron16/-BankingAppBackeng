@@ -111,8 +111,19 @@ def decision_cheque(cheque_id):
     cheque.commentaire = data.get("commentaire", "")
     db.session.commit()
 
+    labels = {"valide": "validé ✔", "refuse": "refusé ✘", "retour": "retourné ↩"}
     if cheque.caissier_id:
-        notify(cheque.caissier_id, f"Chèque #{cheque.numero} : {decision.upper()} - {cheque.commentaire}")
+        notify(cheque.caissier_id,
+               f"Chèque #{cheque.numero} ({cheque.montant} XOF) {labels[decision]}. {cheque.commentaire}")
+
+    # Notifier aussi l'émetteur si le chèque était pré-déclaré
+    if cheque.cheque_emis_id:
+        from app.models import ChequeEmis
+        ce = ChequeEmis.query.get(cheque.cheque_emis_id)
+        if ce:
+            notify(ce.emetteur_id,
+                   f"🔔 Votre chèque N°{cheque.numero} a été {labels[decision]} par la banque. {cheque.commentaire}",
+                   type="validation")
 
     log_action(user_id, f"CHEQUE_{decision.upper()}", details=f"Cheque#{cheque_id}")
     return jsonify(cheque.to_dict()), 200
