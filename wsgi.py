@@ -30,6 +30,7 @@ def init_db():
         {"nom": "Koné",    "prenom": "Koffi",  "email": "koffi@bank.com",         "tel": "+22500000004", "role": RoleEnum.client,       "password": "client123"},
         {"nom": "Martin",  "prenom": "Bob",    "email": "caissier@bank.com",      "tel": "+22500000002", "role": RoleEnum.caissier,     "password": "caissier123"},
         {"nom": "Diallo",  "prenom": "Fatou",  "email": "gestionnaire@bank.com",  "tel": "+22500000003", "role": RoleEnum.gestionnaire, "password": "gestionnaire123"},
+        {"nom": "Kouassi", "prenom": "Jean",   "email": "chef@bank.com",          "tel": "+22500000005", "role": RoleEnum.chef_caisse,  "password": "chef123"},
     ]
 
     for u in users_data:
