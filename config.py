@@ -14,6 +14,7 @@ class Config:
     JWT_ACCESS_TOKEN_EXPIRES = 3600  # 1 heure
     UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), "uploads")
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max upload
+    PROPAGATE_EXCEPTIONS = True
 
     # Twilio SMS (OTP)
     TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "")

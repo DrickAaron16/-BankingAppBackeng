@@ -17,6 +17,47 @@ def init_db():
 
     # ── Migration automatique des colonnes manquantes ──
     with db.engine.connect() as conn:
+        # Nouvelles tables (au cas où db.create_all() ne les a pas créées)
+        try:
+            conn.execute(db.text("""
+                CREATE TABLE IF NOT EXISTS cheques_emis (
+                    id INTEGER PRIMARY KEY,
+                    numero VARCHAR(50) NOT NULL,
+                    montant NUMERIC(15,2) NOT NULL,
+                    banque VARCHAR(100),
+                    beneficiaire VARCHAR(150),
+                    compte_beneficiaire VARCHAR(30),
+                    image_path VARCHAR(255),
+                    emetteur_id INTEGER REFERENCES utilisateurs(id),
+                    compte_emetteur_id INTEGER REFERENCES comptes(id),
+                    gestionnaire_id INTEGER REFERENCES utilisateurs(id),
+                    statut VARCHAR(20) DEFAULT 'en_attente',
+                    commentaire TEXT,
+                    created_at DATETIME,
+                    updated_at DATETIME
+                )
+            """))
+            conn.execute(db.text("""
+                CREATE TABLE IF NOT EXISTS clotures_caisse (
+                    id INTEGER PRIMARY KEY,
+                    date_journee DATE NOT NULL UNIQUE,
+                    chef_caisse_id INTEGER REFERENCES utilisateurs(id),
+                    nb_cheques INTEGER DEFAULT 0,
+                    nb_remises INTEGER DEFAULT 0,
+                    nb_transactions INTEGER DEFAULT 0,
+                    total_encaissements NUMERIC(15,2) DEFAULT 0,
+                    total_decaissements NUMERIC(15,2) DEFAULT 0,
+                    solde_journee NUMERIC(15,2) DEFAULT 0,
+                    observations TEXT,
+                    signature_path VARCHAR(255),
+                    signe BOOLEAN DEFAULT 0,
+                    created_at DATETIME
+                )
+            """))
+        except Exception:
+            pass
+
+        # Colonnes manquantes sur tables existantes
         migrations = [
             ("utilisateurs", "signature_path", "VARCHAR(255)"),
             ("cheques", "cheque_emis_id", "INTEGER"),
@@ -27,12 +68,13 @@ def init_db():
             ("transactions", "caissier_id", "INTEGER"),
             ("transactions", "recu_signe", "BOOLEAN DEFAULT 0"),
             ("transactions", "recu_path", "VARCHAR(255)"),
+            ("notifications", "type", "VARCHAR(50) DEFAULT 'info'"),
         ]
         for table, col, col_type in migrations:
             try:
                 conn.execute(db.text(f"ALTER TABLE {table} ADD COLUMN {col} {col_type}"))
             except Exception:
-                pass  # colonne déjà existante
+                pass
         conn.commit()
 
     if Utilisateur.query.first():
@@ -91,4 +133,4 @@ with app.app_context():
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=port, debug=True)
