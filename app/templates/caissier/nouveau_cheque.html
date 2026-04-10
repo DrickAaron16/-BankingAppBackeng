@@ -47,20 +47,19 @@
               <input type="text" name="beneficiaire" class="form-control" placeholder="Nom du bénéficiaire">
             </div>
 
-            <!-- Zone scan / upload image -->
             <div class="col-12">
               <label class="form-label fw-semibold">Photo / Scan du chèque</label>
               <div id="dropZone" class="border border-2 border-dashed rounded-3 p-4 text-center"
-                   style="cursor:pointer; border-color:#CBD5E1 !important; background:#F8FAFC; transition:.2s"
+                   style="cursor:pointer; border-color:#CBD5E1 !important; background:#F8FAFC;"
                    onclick="document.getElementById('imageInput').click()"
-                   ondragover="event.preventDefault(); this.style.borderColor='#1B3A6B'"
-                   ondragleave="this.style.borderColor='#CBD5E1'"
+                   ondragover="event.preventDefault()"
                    ondrop="handleDrop(event)">
                 <div id="dropPlaceholder">
                   <i class="bi bi-camera fs-2 text-muted"></i>
                   <p class="mb-1 mt-2 text-muted">Glissez l'image ici ou <strong>cliquez pour parcourir</strong></p>
-                  <p class="text-muted small">JPG, PNG, PDF — max 10 Mo</p>
-                  <button type="button" class="btn btn-outline-primary btn-sm mt-1" onclick="event.stopPropagation(); startCamera()">
+                  <p class="text-muted small">JPG, PNG — max 10 Mo</p>
+                  <button type="button" class="btn btn-outline-primary btn-sm mt-1"
+                          onclick="event.stopPropagation(); startCamera()">
                     <i class="bi bi-camera-video me-1"></i>Utiliser la caméra
                   </button>
                 </div>
@@ -72,13 +71,14 @@
                   </button>
                 </div>
               </div>
-              <input type="file" id="imageInput" name="image" accept="image/*,application/pdf" class="d-none">
+              <input type="file" id="imageInput" name="image" accept="image/*" class="d-none">
 
-              <!-- Caméra live -->
               <div id="cameraSection" class="d-none mt-3">
                 <video id="cameraVideo" class="w-100 rounded-3" style="max-height:260px; background:#000" autoplay></video>
                 <div class="d-flex gap-2 mt-2">
-                  <button type="button" class="btn btn-success" onclick="capturePhoto()"><i class="bi bi-camera me-1"></i>Capturer</button>
+                  <button type="button" class="btn btn-success" onclick="capturePhoto()">
+                    <i class="bi bi-camera me-1"></i>Capturer
+                  </button>
                   <button type="button" class="btn btn-outline-secondary" onclick="stopCamera()">Annuler</button>
                 </div>
                 <canvas id="captureCanvas" class="d-none"></canvas>
@@ -101,11 +101,11 @@
 
 {% block scripts %}
 <script>
+  let cameraStream = null;
   const imageInput = document.getElementById('imageInput');
   const previewImg = document.getElementById('previewImg');
   const previewContainer = document.getElementById('previewContainer');
   const dropPlaceholder = document.getElementById('dropPlaceholder');
-  let cameraStream = null;
 
   imageInput.addEventListener('change', e => showPreview(e.target.files[0]));
 
@@ -129,7 +129,6 @@
 
   function handleDrop(e) {
     e.preventDefault();
-    document.getElementById('dropZone').style.borderColor = '#CBD5E1';
     const file = e.dataTransfer.files[0];
     if (file) {
       const dt = new DataTransfer();
@@ -169,76 +168,13 @@
     if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; }
     document.getElementById('cameraSection').classList.add('d-none');
   }
-</script>
-{% endblock %}
 
-{% block scripts %}
-<script>
-  let cameraStream = null;
-  const imageInput = document.getElementById('imageInput');
-  const previewImg = document.getElementById('previewImg');
-  const previewContainer = document.getElementById('previewContainer');
-  const dropPlaceholder = document.getElementById('dropPlaceholder');
-
-  imageInput.addEventListener('change', e => showPreview(e.target.files[0]));
-
-  function showPreview(file) {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => {
-      previewImg.src = ev.target.result;
-      previewContainer.classList.remove('d-none');
-      dropPlaceholder.classList.add('d-none');
-    };
-    reader.readAsDataURL(file);
-  }
-
-  function clearImage(e) {
-    e.stopPropagation();
-    imageInput.value = '';
-    previewContainer.classList.add('d-none');
-    dropPlaceholder.classList.remove('d-none');
-  }
-
-  function handleDrop(e) {
-    e.preventDefault();
-    const file = e.dataTransfer.files[0];
-    if (file) { const dt = new DataTransfer(); dt.items.add(file); imageInput.files = dt.files; showPreview(file); }
-  }
-
-  async function startCamera() {
-    try {
-      cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-      document.getElementById('cameraVideo').srcObject = cameraStream;
-      document.getElementById('cameraSection').classList.remove('d-none');
-    } catch(err) { alert('Impossible d\'accéder à la caméra : ' + err.message); }
-  }
-
-  function capturePhoto() {
-    const video = document.getElementById('cameraVideo');
-    const canvas = document.getElementById('captureCanvas');
-    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-    canvas.getContext('2d').drawImage(video, 0, 0);
-    canvas.toBlob(blob => {
-      const file = new File([blob], 'cheque_capture.jpg', { type: 'image/jpeg' });
-      const dt = new DataTransfer(); dt.items.add(file);
-      imageInput.files = dt.files;
-      showPreview(file);
-      stopCamera();
-    }, 'image/jpeg', 0.9);
-  }
-
-  function stopCamera() {
-    if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; }
-    document.getElementById('cameraSection').classList.add('d-none');
-  }
-
-  // ── Vérification automatique du chèque ──
+  // Vérification automatique du chèque pré-déclaré
   async function verifierCheque() {
     const numero = document.getElementById('numeroCheque').value.trim();
     if (!numero) return;
     const div = document.getElementById('verificationResult');
-    div.innerHTML = '<span class="text-muted small"><i class="bi bi-hourglass-split me-1"></i>Vérification en cours...</span>';
+    div.innerHTML = '<span class="text-muted small"><i class="bi bi-hourglass-split me-1"></i>Vérification...</span>';
     try {
       const res = await fetch(`/caissier/cheques/verifier/${encodeURIComponent(numero)}`);
       const data = await res.json();
@@ -247,14 +183,15 @@
         div.innerHTML = `
           <div class="alert alert-success py-2 small mb-0">
             <i class="bi bi-check-circle-fill me-1"></i><strong>${data.message}</strong><br>
-            Montant déclaré : <strong>${parseFloat(c.montant).toLocaleString('fr-FR')} XOF</strong>
+            Montant : <strong>${parseFloat(c.montant).toLocaleString('fr-FR')} XOF</strong>
             · Bénéficiaire : <strong>${c.beneficiaire || '—'}</strong>
           </div>`;
         if (c.montant) document.querySelector('[name="montant"]').value = c.montant;
         if (c.banque) document.querySelector('[name="banque"]').value = c.banque;
         if (c.beneficiaire) document.querySelector('[name="beneficiaire"]').value = c.beneficiaire;
       } else {
-        div.innerHTML = `<div class="alert alert-warning py-2 small mb-0"><i class="bi bi-exclamation-triangle me-1"></i>${data.message}</div>`;
+        div.innerHTML = `<div class="alert alert-warning py-2 small mb-0">
+          <i class="bi bi-exclamation-triangle me-1"></i>${data.message}</div>`;
       }
     } catch(e) {
       div.innerHTML = '<span class="text-danger small">Erreur de vérification</span>';
