@@ -90,7 +90,7 @@ def web_login():
         if not user or not user.check_password(password):
             return render_template("login.html", error="Identifiants invalides")
 
-        if user.role not in [RoleEnum.caissier, RoleEnum.gestionnaire]:
+        if user.role not in [RoleEnum.caissier, RoleEnum.gestionnaire, RoleEnum.chef_caisse]:
             return render_template("login.html", error="Accès non autorisé")
 
         session["user_id"] = user.id
@@ -100,6 +100,8 @@ def web_login():
 
         if user.role == RoleEnum.caissier:
             return redirect(url_for("caissier.dashboard"))
+        if user.role == RoleEnum.chef_caisse:
+            return redirect(url_for("chef_caisse_web.dashboard"))
         return redirect(url_for("gestionnaire.dashboard"))
 
     return render_template("login.html")

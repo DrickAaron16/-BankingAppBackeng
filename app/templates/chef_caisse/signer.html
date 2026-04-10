@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Signer la clôture{% endblock %}
+{% block page_title %}<i class="bi bi-pen me-2"></i>Signature de clôture{% endblock %}
+
+{% block sidebar %}
+<div class="sidebar">
+  <div class="brand">🏦 Bank<span>Digital</span></div>
+  <nav class="mt-2">
+    <a href="{{ url_for('chef_caisse_web.dashboard') }}"><i class="bi bi-speedometer2"></i>Dashboard</a>
+    <a href="{{ url_for('chef_caisse_web.journee') }}"><i class="bi bi-calendar-day"></i>Journée</a>
+  </nav>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-7">
+    <div class="card p-4">
+      <h5 class="fw-bold mb-1">Clôture du {{ cloture.date_journee.strftime('%d/%m/%Y') }}</h5>
+      <p class="text-muted small mb-4">Signez pour valider définitivement cette journée.</p>
+
+      <!-- Résumé -->
+      <div class="row g-3 mb-4">
+        <div class="col-6"><div class="bg-light rounded p-3 text-center">
+          <div class="text-muted small">Chèques</div><div class="fw-bold fs-5">{{ cloture.nb_cheques }}</div>
+        </div></div>
+        <div class="col-6"><div class="bg-light rounded p-3 text-center">
+          <div class="text-muted small">Remises</div><div class="fw-bold fs-5">{{ cloture.nb_remises }}</div>
+        </div></div>
+        <div class="col-6"><div class="bg-light rounded p-3 text-center">
+          <div class="text-muted small">Encaissements</div>
+          <div class="fw-bold fs-5 text-success">{{ "{:,.0f}".format(cloture.total_encaissements) }} XOF</div>
+        </div></div>
+        <div class="col-6"><div class="bg-light rounded p-3 text-center">
+          <div class="text-muted small">Solde journée</div>
+          <div class="fw-bold fs-5 {{ 'text-success' if cloture.solde_journee >= 0 else 'text-danger' }}">
+            {{ "{:,.0f}".format(cloture.solde_journee) }} XOF
+          </div>
+        </div></div>
+      </div>
+
+      {% if cloture.signe %}
+      <div class="alert alert-success">
+        <i class="bi bi-check-circle-fill me-2"></i>Cette clôture a déjà été signée.
+        {% if cloture.signature_path %}
+        <br><img src="/uploads/{{ cloture.signature_path }}" style="max-height:80px; margin-top:8px">
+        {% endif %}
+      </div>
+      {% else %}
+      <!-- Zone de signature digitale -->
+      <form method="POST" enctype="multipart/form-data">
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Signature digitale</label>
+          <p class="text-muted small">Dessinez votre signature ci-dessous ou uploadez une image de signature.</p>
+
+          <!-- Canvas signature -->
+          <canvas id="signatureCanvas" width="500" height="150"
+                  class="border rounded w-100"
+                  style="background:#fff; cursor:crosshair; touch-action:none"></canvas>
+          <div class="d-flex gap-2 mt-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearCanvas()">
+              <i class="bi bi-eraser me-1"></i>Effacer
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-primary" onclick="useCanvas()">
+              <i class="bi bi-check me-1"></i>Utiliser cette signature
+            </button>
+          </div>
+          <input type="file" id="signatureFile" name="signature" accept="image/*" class="form-control mt-3">
+          <div class="form-text">Ou uploadez directement une image de signature.</div>
+        </div>
+
+        <button type="submit" class="btn btn-primary w-100"
+                onclick="return confirm('Confirmer la signature ? Cette action est irréversible.')">
+          <i class="bi bi-pen me-2"></i>Signer et clôturer définitivement
+        </button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const canvas = document.getElementById('signatureCanvas');
+  const ctx = canvas.getContext('2d');
+  let drawing = false;
+
+  canvas.addEventListener('mousedown', e => { drawing = true; ctx.beginPath(); ctx.moveTo(e.offsetX, e.offsetY); });
+  canvas.addEventListener('mousemove', e => { if (!drawing) return; ctx.lineTo(e.offsetX, e.offsetY); ctx.stroke(); });
+  canvas.addEventListener('mouseup', () => drawing = false);
+  canvas.addEventListener('touchstart', e => { e.preventDefault(); drawing = true; const t = e.touches[0]; const r = canvas.getBoundingClientRect(); ctx.beginPath(); ctx.moveTo(t.clientX - r.left, t.clientY - r.top); });
+  canvas.addEventListener('touchmove', e => { e.preventDefault(); if (!drawing) return; const t = e.touches[0]; const r = canvas.getBoundingClientRect(); ctx.lineTo(t.clientX - r.left, t.clientY - r.top); ctx.stroke(); });
+  canvas.addEventListener('touchend', () => drawing = false);
+
+  ctx.strokeStyle = '#1B3A6B';
+  ctx.lineWidth = 2;
+  ctx.lineCap = 'round';
+
+  function clearCanvas() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
+
+  function useCanvas() {
+    canvas.toBlob(blob => {
+      const file = new File([blob], 'signature.png', { type: 'image/png' });
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      document.getElementById('signatureFile').files = dt.files;
+      alert('Signature capturée. Cliquez sur "Signer" pour finaliser.');
+    });
+  }
+</script>
+{% endblock %}

@@ -26,7 +26,13 @@
           <div class="row g-3">
             <div class="col-md-6">
               <label class="form-label fw-semibold">N° Chèque <span class="text-danger">*</span></label>
-              <input type="text" name="numero" class="form-control" placeholder="Ex: 0012345" required>
+              <div class="input-group">
+                <input type="text" name="numero" id="numeroCheque" class="form-control" placeholder="Ex: 0012345" required>
+                <button type="button" class="btn btn-outline-primary" onclick="verifierCheque()">
+                  <i class="bi bi-search"></i> Vérifier
+                </button>
+              </div>
+              <div id="verificationResult" class="mt-2"></div>
             </div>
             <div class="col-md-6">
               <label class="form-label fw-semibold">Montant (XOF) <span class="text-danger">*</span></label>
@@ -163,5 +169,98 @@
     if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; }
     document.getElementById('cameraSection').classList.add('d-none');
   }
+</script>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  let cameraStream = null;
+  const imageInput = document.getElementById('imageInput');
+  const previewImg = document.getElementById('previewImg');
+  const previewContainer = document.getElementById('previewContainer');
+  const dropPlaceholder = document.getElementById('dropPlaceholder');
+
+  imageInput.addEventListener('change', e => showPreview(e.target.files[0]));
+
+  function showPreview(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      previewImg.src = ev.target.result;
+      previewContainer.classList.remove('d-none');
+      dropPlaceholder.classList.add('d-none');
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function clearImage(e) {
+    e.stopPropagation();
+    imageInput.value = '';
+    previewContainer.classList.add('d-none');
+    dropPlaceholder.classList.remove('d-none');
+  }
+
+  function handleDrop(e) {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (file) { const dt = new DataTransfer(); dt.items.add(file); imageInput.files = dt.files; showPreview(file); }
+  }
+
+  async function startCamera() {
+    try {
+      cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      document.getElementById('cameraVideo').srcObject = cameraStream;
+      document.getElementById('cameraSection').classList.remove('d-none');
+    } catch(err) { alert('Impossible d\'accéder à la caméra : ' + err.message); }
+  }
+
+  function capturePhoto() {
+    const video = document.getElementById('cameraVideo');
+    const canvas = document.getElementById('captureCanvas');
+    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    canvas.toBlob(blob => {
+      const file = new File([blob], 'cheque_capture.jpg', { type: 'image/jpeg' });
+      const dt = new DataTransfer(); dt.items.add(file);
+      imageInput.files = dt.files;
+      showPreview(file);
+      stopCamera();
+    }, 'image/jpeg', 0.9);
+  }
+
+  function stopCamera() {
+    if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; }
+    document.getElementById('cameraSection').classList.add('d-none');
+  }
+
+  // ── Vérification automatique du chèque ──
+  async function verifierCheque() {
+    const numero = document.getElementById('numeroCheque').value.trim();
+    if (!numero) return;
+    const div = document.getElementById('verificationResult');
+    div.innerHTML = '<span class="text-muted small"><i class="bi bi-hourglass-split me-1"></i>Vérification en cours...</span>';
+    try {
+      const res = await fetch(`/caissier/cheques/verifier/${encodeURIComponent(numero)}`);
+      const data = await res.json();
+      if (data.pre_declare) {
+        const c = data.cheque;
+        div.innerHTML = `
+          <div class="alert alert-success py-2 small mb-0">
+            <i class="bi bi-check-circle-fill me-1"></i><strong>${data.message}</strong><br>
+            Montant déclaré : <strong>${parseFloat(c.montant).toLocaleString('fr-FR')} XOF</strong>
+            · Bénéficiaire : <strong>${c.beneficiaire || '—'}</strong>
+          </div>`;
+        if (c.montant) document.querySelector('[name="montant"]').value = c.montant;
+        if (c.banque) document.querySelector('[name="banque"]').value = c.banque;
+        if (c.beneficiaire) document.querySelector('[name="beneficiaire"]').value = c.beneficiaire;
+      } else {
+        div.innerHTML = `<div class="alert alert-warning py-2 small mb-0"><i class="bi bi-exclamation-triangle me-1"></i>${data.message}</div>`;
+      }
+    } catch(e) {
+      div.innerHTML = '<span class="text-danger small">Erreur de vérification</span>';
+    }
+  }
+
+  document.getElementById('numeroCheque').addEventListener('blur', verifierCheque);
 </script>
 {% endblock %}

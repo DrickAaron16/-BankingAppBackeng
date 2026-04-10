@@ -41,25 +41,54 @@ def get_cheque(cheque_id):
 def create_cheque():
     user_id = int(get_jwt_identity())
     role = get_jwt().get("role")
-    if role != RoleEnum.caissier.value:
+    if role not in [RoleEnum.caissier.value, RoleEnum.chef_caisse.value]:
         return jsonify({"error": "Accès refusé"}), 403
 
     image_path = None
     if "image" in request.files:
         image_path = save_file(request.files["image"], "cheques")
 
+    numero = request.form.get("numero")
+
+    # ── Vérification automatique : chèque pré-déclaré ? ──
+    from app.models import ChequeEmis
+    cheque_emis = ChequeEmis.query.filter_by(numero=numero).order_by(ChequeEmis.created_at.desc()).first()
+    pre_declare = cheque_emis is not None
+    alerte = None
+
+    if pre_declare:
+        montant_saisi = float(request.form.get("montant", 0))
+        montant_declare = float(cheque_emis.montant)
+        if abs(montant_saisi - montant_declare) > 1:
+            alerte = f"⚠ Montant différent du déclaré ({montant_declare:,.0f} XOF)"
+
     cheque = Cheque(
-        numero=request.form.get("numero"),
+        numero=numero,
         montant=request.form.get("montant"),
         banque=request.form.get("banque"),
         beneficiaire=request.form.get("beneficiaire"),
         image_path=image_path,
         caissier_id=user_id,
+        cheque_emis_id=cheque_emis.id if cheque_emis else None,
     )
     db.session.add(cheque)
     db.session.commit()
-    log_action(user_id, "CHEQUE_CREE", details=f"Cheque#{cheque.id}")
-    return jsonify(cheque.to_dict()), 201
+
+    # Notifier le gestionnaire si pré-déclaré
+    if pre_declare and cheque_emis.gestionnaire_id:
+        notify(
+            cheque_emis.gestionnaire_id,
+            f"Chèque N°{numero} ({cheque.montant} XOF) présenté en caisse par {cheque.beneficiaire or 'bénéficiaire'}. Veuillez valider.",
+            type="validation"
+        )
+
+    log_action(user_id, "CHEQUE_CREE", details=f"Cheque#{cheque.id} pre_declare={pre_declare}")
+    return jsonify({
+        "cheque": cheque.to_dict(),
+        "pre_declare": pre_declare,
+        "alerte": alerte,
+        "cheque_emis": cheque_emis.to_dict() if cheque_emis else None,
+    }), 201
 
 
 @cheques_bp.route("/<int:cheque_id>/decision", methods=["PUT"])

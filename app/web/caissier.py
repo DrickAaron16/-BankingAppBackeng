@@ -25,6 +25,20 @@ def dashboard():
 
 # ─── Chèques ──────────────────────────────────────────────────────────────────
 
+@caissier_bp.route("/cheques/verifier/<numero>")
+@login_required_web(roles=["caissier", "chef_caisse"])
+def verifier_cheque(numero):
+    from app.models import ChequeEmis
+    cheque = ChequeEmis.query.filter_by(numero=numero).order_by(ChequeEmis.created_at.desc()).first()
+    if not cheque:
+        return jsonify({"pre_declare": False, "message": "Chèque non pré-déclaré par l'émetteur"})
+    return jsonify({
+        "pre_declare": True,
+        "cheque": cheque.to_dict(),
+        "message": f"✔ Pré-déclaré par {cheque.emetteur.prenom} {cheque.emetteur.nom}",
+    })
+
+
 @caissier_bp.route("/cheques")
 @login_required_web(roles=["caissier"])
 def cheques():
@@ -37,31 +51,41 @@ def cheques():
 
 
 @caissier_bp.route("/cheques/nouveau", methods=["GET", "POST"])
-@login_required_web(roles=["caissier"])
+@login_required_web(roles=["caissier", "chef_caisse"])
 def nouveau_cheque():
     if request.method == "POST":
         image_path = None
         if "image" in request.files and request.files["image"].filename:
             image_path = save_file(request.files["image"], "cheques")
 
+        from app.models import ChequeEmis
+        numero = request.form["numero"]
+        cheque_emis = ChequeEmis.query.filter_by(numero=numero).order_by(ChequeEmis.created_at.desc()).first()
+
         cheque = Cheque(
-            numero=request.form["numero"],
+            numero=numero,
             montant=request.form["montant"],
             banque=request.form.get("banque"),
             beneficiaire=request.form.get("beneficiaire"),
             image_path=image_path,
             caissier_id=session["user_id"],
+            cheque_emis_id=cheque_emis.id if cheque_emis else None,
         )
         db.session.add(cheque)
         db.session.commit()
 
-        # Notifier tous les gestionnaires
-        gestionnaires = Utilisateur.query.filter_by(role="gestionnaire", actif=True).all()
-        for g in gestionnaires:
-            notify(g.id, f"Nouveau chèque #{cheque.numero} soumis par le caissier — Montant : {cheque.montant} XOF")
+        if cheque_emis:
+            # Notifier le gestionnaire
+            gestionnaires = Utilisateur.query.filter_by(role="gestionnaire", actif=True).all()
+            for g in gestionnaires:
+                notify(g.id,
+                       f"Chèque N°{numero} ({cheque.montant} XOF) présenté en caisse — pré-déclaré par {cheque_emis.emetteur.prenom} {cheque_emis.emetteur.nom}",
+                       type="validation")
+            flash(f"✔ Chèque pré-déclaré par {cheque_emis.emetteur.prenom} {cheque_emis.emetteur.nom} — gestionnaire notifié", "success")
+        else:
+            flash("Chèque soumis pour validation (non pré-déclaré)", "warning")
 
         log_action(session["user_id"], "CHEQUE_CREE_WEB", details=f"Cheque#{cheque.id}")
-        flash("Chèque soumis pour validation au gestionnaire", "success")
         return redirect(url_for("caissier.cheques"))
 
     return render_template("caissier/nouveau_cheque.html")

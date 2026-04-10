@@ -38,8 +38,8 @@ def log_action(utilisateur_id, action, details=None, ip=None):
     db.session.add(log)
     db.session.commit()
 
-def notify(utilisateur_id, message):
+def notify(utilisateur_id, message, type="info"):
     """Crée une notification pour un utilisateur."""
-    notif = Notification(utilisateur_id=utilisateur_id, message=message)
+    notif = Notification(utilisateur_id=utilisateur_id, message=message, type=type)
     db.session.add(notif)
     db.session.commit()

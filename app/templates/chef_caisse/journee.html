@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block title %}Récapitulatif journée{% endblock %}
+{% block page_title %}<i class="bi bi-calendar-day me-2"></i>Journée du {{ jour.strftime('%d/%m/%Y') }}{% endblock %}
+
+{% block sidebar %}
+<div class="sidebar">
+  <div class="brand">🏦 Bank<span>Digital</span></div>
+  <nav class="mt-2">
+    <div class="nav-section">Menu</div>
+    <a href="{{ url_for('chef_caisse_web.dashboard') }}"><i class="bi bi-speedometer2"></i>Dashboard</a>
+    <a href="{{ url_for('chef_caisse_web.journee') }}" class="active"><i class="bi bi-calendar-day"></i>Journée en cours</a>
+  </nav>
+</div>
+{% endblock %}
+
+{% block content %}
+<!-- Sélecteur de date -->
+<div class="d-flex gap-2 align-items-center mb-4">
+  <form method="GET" class="d-flex gap-2">
+    <input type="date" name="date" value="{{ jour.isoformat() }}" class="form-control form-control-sm" style="width:180px">
+    <button type="submit" class="btn btn-sm btn-outline-primary">Voir</button>
+  </form>
+  {% if not cloture or not cloture.signe %}
+  <button class="btn btn-primary btn-sm ms-auto" data-bs-toggle="modal" data-bs-target="#cloturModal">
+    <i class="bi bi-lock me-1"></i>Clôturer la journée
+  </button>
+  {% else %}
+  <span class="badge bg-success ms-auto fs-6"><i class="bi bi-check-circle-fill me-1"></i>Journée clôturée et signée</span>
+  {% endif %}
+</div>
+
+<!-- Totaux -->
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="card stat-card green p-3 text-center">
+      <div class="text-muted small">Total encaissements</div>
+      <div class="fs-4 fw-bold text-success">{{ "{:,.0f}".format(total_enc) }} XOF</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card stat-card red p-3 text-center">
+      <div class="text-muted small">Total décaissements</div>
+      <div class="fs-4 fw-bold text-danger">{{ "{:,.0f}".format(total_dec) }} XOF</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card stat-card blue p-3 text-center">
+      <div class="text-muted small">Solde journée</div>
+      <div class="fs-4 fw-bold {{ 'text-success' if solde >= 0 else 'text-danger' }}">
+        {{ "{:,.0f}".format(solde) }} XOF
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Chèques -->
+<div class="card mb-3">
+  <div class="card-header d-flex justify-content-between">
+    <span>Chèques ({{ cheques|length }})</span>
+    <span class="text-muted small">{{ cheques|selectattr('statut.value', 'eq', 'valide')|list|length }} validés</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover mb-0 table-sm">
+      <thead><tr><th>N°</th><th>Montant</th><th>Bénéficiaire</th><th>Statut</th><th>Caissier</th><th>Heure</th></tr></thead>
+      <tbody>
+        {% for c in cheques %}
+        <tr>
+          <td>{{ c.numero }}</td>
+          <td>{{ "{:,.0f}".format(c.montant) }} XOF</td>
+          <td>{{ c.beneficiaire or '—' }}</td>
+          <td><span class="badge badge-{{ c.statut.value }}">{{ c.statut.value.replace('_',' ').title() }}</span></td>
+          <td class="text-muted small">{{ c.caissier_id or '—' }}</td>
+          <td class="text-muted small">{{ c.created_at.strftime('%H:%M') }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="text-center text-muted py-3">Aucun chèque</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Remises -->
+<div class="card mb-3">
+  <div class="card-header">Remises ({{ remises|length }})</div>
+  <div class="table-responsive">
+    <table class="table table-hover mb-0 table-sm">
+      <thead><tr><th>Référence</th><th>Nb chèques</th><th>Statut</th><th>Heure</th></tr></thead>
+      <tbody>
+        {% for r in remises %}
+        <tr>
+          <td><code>{{ r.reference }}</code></td>
+          <td>{{ r.details|length }}</td>
+          <td><span class="badge badge-{{ r.statut.value }}">{{ r.statut.value.replace('_',' ').title() }}</span></td>
+          <td class="text-muted small">{{ r.created_at.strftime('%H:%M') }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" class="text-center text-muted py-3">Aucune remise</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Transactions -->
+<div class="card mb-3">
+  <div class="card-header">Transactions ({{ transactions|length }})</div>
+  <div class="table-responsive">
+    <table class="table table-hover mb-0 table-sm">
+      <thead><tr><th>Référence</th><th>Type</th><th>Montant</th><th>Statut</th><th>Heure</th></tr></thead>
+      <tbody>
+        {% for t in transactions %}
+        <tr>
+          <td><code>{{ t.reference }}</code></td>
+          <td>{{ t.type.value.replace('_',' ').title() }}</td>
+          <td>{{ "{:,.0f}".format(t.montant) }} XOF</td>
+          <td><span class="badge badge-{{ t.statut.value }}">{{ t.statut.value.replace('_',' ').title() }}</span></td>
+          <td class="text-muted small">{{ t.created_at.strftime('%H:%M') }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="text-center text-muted py-3">Aucune transaction</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal clôture -->
+<div class="modal fade" id="cloturModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="POST" action="{{ url_for('chef_caisse_web.cloturer') }}">
+        <input type="hidden" name="date" value="{{ jour.isoformat() }}">
+        <div class="modal-header">
+          <h5 class="modal-title">Clôturer la journée du {{ jour.strftime('%d/%m/%Y') }}</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="alert alert-info py-2 small">
+            <strong>Récapitulatif :</strong> {{ cheques|length }} chèque(s) · {{ remises|length }} remise(s) · {{ transactions|length }} transaction(s)<br>
+            Encaissements : <strong>{{ "{:,.0f}".format(total_enc) }} XOF</strong> · Solde : <strong>{{ "{:,.0f}".format(solde) }} XOF</strong>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Observations</label>
+            <textarea name="observations" class="form-control" rows="3" placeholder="Remarques éventuelles..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-lock me-1"></i>Clôturer et signer
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

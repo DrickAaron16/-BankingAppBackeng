@@ -30,16 +30,22 @@ def create_app():
     from app.api.accounts import accounts_bp
     from app.api.transactions import transactions_bp
     from app.api.cheques import cheques_bp
+    from app.api.cheques_emis import cheques_emis_bp
     from app.api.remises import remises_bp
+    from app.api.chef_caisse import chef_caisse_bp
     from app.web.caissier import caissier_bp
     from app.web.gestionnaire import gestionnaire_bp
+    from app.web.chef_caisse import chef_caisse_bp as chef_caisse_web_bp
 
     app.register_blueprint(auth_bp, url_prefix="/auth")
     app.register_blueprint(accounts_bp, url_prefix="/api/accounts")
     app.register_blueprint(transactions_bp, url_prefix="/api/transactions")
     app.register_blueprint(cheques_bp, url_prefix="/api/cheques")
+    app.register_blueprint(cheques_emis_bp, url_prefix="/api/cheques-emis")
     app.register_blueprint(remises_bp, url_prefix="/api/remises")
+    app.register_blueprint(chef_caisse_bp, url_prefix="/api/chef-caisse")
     app.register_blueprint(caissier_bp, url_prefix="/caissier")
     app.register_blueprint(gestionnaire_bp, url_prefix="/gestionnaire")
+    app.register_blueprint(chef_caisse_web_bp, url_prefix="/chef-caisse")
 
     return app

@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Chef de Caisse{% endblock %}
+{% block page_title %}<i class="bi bi-shield-check me-2"></i>Chef de Caisse{% endblock %}
+
+{% block sidebar %}
+<div class="sidebar">
+  <div class="brand">🏦 Bank<span>Digital</span></div>
+  <nav class="mt-2">
+    <div class="nav-section">Menu</div>
+    <a href="{{ url_for('chef_caisse_web.dashboard') }}" class="active"><i class="bi bi-speedometer2"></i>Dashboard</a>
+    <a href="{{ url_for('chef_caisse_web.journee') }}"><i class="bi bi-calendar-day"></i>Journée en cours</a>
+    <div class="nav-section">Historique</div>
+    <a href="{{ url_for('chef_caisse_web.journee') }}?date={{ aujourd_hui }}"><i class="bi bi-clock-history"></i>Récapitulatifs</a>
+  </nav>
+</div>
+{% endblock %}
+
+{% block content %}
+<!-- Stats du jour -->
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-xl-3">
+    <div class="card stat-card blue p-3">
+      <div class="text-muted small mb-1">Chèques traités</div>
+      <div class="fs-3 fw-bold">{{ stats.nb_cheques }}</div>
+      <div class="text-success small">{{ stats.nb_cheques_valides }} validés</div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="card stat-card green p-3">
+      <div class="text-muted small mb-1">Remises</div>
+      <div class="fs-3 fw-bold">{{ stats.nb_remises }}</div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="card stat-card orange p-3">
+      <div class="text-muted small mb-1">Transactions</div>
+      <div class="fs-3 fw-bold">{{ stats.nb_transactions }}</div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="card stat-card {{ 'green' if not cloture_du_jour else 'red' }} p-3">
+      <div class="text-muted small mb-1">Clôture du jour</div>
+      <div class="fs-5 fw-bold">
+        {% if cloture_du_jour %}
+          {% if cloture_du_jour.signe %}<span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>Signée</span>
+          {% else %}<span class="text-warning"><i class="bi bi-clock me-1"></i>Non signée</span>{% endif %}
+        {% else %}<span class="text-danger"><i class="bi bi-x-circle me-1"></i>Non clôturée</span>{% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-8">
+    <div class="card p-4">
+      <h6 class="fw-bold mb-3">Journée du {{ aujourd_hui.strftime('%d/%m/%Y') }}</h6>
+      <a href="{{ url_for('chef_caisse_web.journee') }}" class="btn btn-primary">
+        <i class="bi bi-eye me-2"></i>Voir le récapitulatif complet
+      </a>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card p-4">
+      <h6 class="fw-bold mb-3">Dernières clôtures</h6>
+      {% for c in dernieres_clotures %}
+      <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+        <span class="small">{{ c.date_journee.strftime('%d/%m/%Y') }}</span>
+        {% if c.signe %}
+        <span class="badge bg-success">Signée</span>
+        {% else %}
+        <a href="{{ url_for('chef_caisse_web.signer_form', cloture_id=c.id) }}" class="badge bg-warning text-dark">Signer</a>
+        {% endif %}
+      </div>
+      {% else %}
+      <p class="text-muted small">Aucune clôture</p>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}
