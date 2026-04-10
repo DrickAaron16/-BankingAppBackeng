@@ -14,6 +14,27 @@ def init_db():
     from decimal import Decimal
 
     db.create_all()
+
+    # ── Migration automatique des colonnes manquantes ──
+    with db.engine.connect() as conn:
+        migrations = [
+            ("utilisateurs", "signature_path", "VARCHAR(255)"),
+            ("cheques", "cheque_emis_id", "INTEGER"),
+            ("cheques", "recu_signe", "BOOLEAN DEFAULT 0"),
+            ("cheques", "recu_path", "VARCHAR(255)"),
+            ("remises", "bordereau_path", "VARCHAR(255)"),
+            ("remises", "signature_gestionnaire", "VARCHAR(255)"),
+            ("transactions", "caissier_id", "INTEGER"),
+            ("transactions", "recu_signe", "BOOLEAN DEFAULT 0"),
+            ("transactions", "recu_path", "VARCHAR(255)"),
+        ]
+        for table, col, col_type in migrations:
+            try:
+                conn.execute(db.text(f"ALTER TABLE {table} ADD COLUMN {col} {col_type}"))
+            except Exception:
+                pass  # colonne déjà existante
+        conn.commit()
+
     if Utilisateur.query.first():
         return
 
