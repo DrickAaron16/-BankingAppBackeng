@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 from app import db
 from app.models import Cheque, Remise, Notification, StatutEnum, RoleEnum, Utilisateur
-from app.utils import save_file, log_action, notify
+from app.utils import save_file, log_action, notify, get_solde_info
 
 cheques_bp = Blueprint("cheques", __name__)
 
@@ -74,6 +74,14 @@ def create_cheque():
     db.session.add(cheque)
     db.session.commit()
 
+    # Notifier l'émetteur que son chèque a été présenté en caisse
+    if pre_declare:
+        notify(
+            cheque_emis.emetteur_id,
+            f"🏦 Votre chèque N°{cheque.numero} ({float(cheque.montant):,.0f} XOF) a été présenté en caisse et est en attente de validation.{get_solde_info(cheque_emis.emetteur_id, cheque_emis.compte_emetteur_id)}",
+            type="info",
+        )
+
     # Notifier le gestionnaire si pré-déclaré
     if pre_declare:
         # Construire le message enrichi
@@ -138,15 +146,17 @@ def decision_cheque(cheque_id):
     labels = {"valide": "validé ✔", "refuse": "refusé ✘", "retour": "retourné ↩"}
     if cheque.caissier_id:
         notify(cheque.caissier_id,
-               f"Chèque #{cheque.numero} ({cheque.montant} XOF) {labels[decision]}. {cheque.commentaire}")
+               f"Chèque N°{cheque.numero} ({float(cheque.montant):,.0f} XOF) {labels[decision]}. {cheque.commentaire}",
+               type="validation")
 
-    # Notifier aussi l'émetteur si le chèque était pré-déclaré
+    # Notifier l'émetteur si le chèque était pré-déclaré
     if cheque.cheque_emis_id:
         from app.models import ChequeEmis
         ce = ChequeEmis.query.get(cheque.cheque_emis_id)
         if ce:
+            emojis = {"valide": "✅", "refuse": "❌", "retour": "↩️"}
             notify(ce.emetteur_id,
-                   f"🔔 Votre chèque N°{cheque.numero} a été {labels[decision]} par la banque. {cheque.commentaire}",
+                   f"{emojis[decision]} Votre chèque N°{cheque.numero} ({float(cheque.montant):,.0f} XOF) a été {labels[decision]} par la banque.{' ' + cheque.commentaire if cheque.commentaire else ''}{get_solde_info(ce.emetteur_id, ce.compte_emetteur_id)}",
                    type="validation")
 
     log_action(user_id, f"CHEQUE_{decision.upper()}", details=f"Cheque#{cheque_id}")

@@ -5,7 +5,7 @@ from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 from app import db
 from app.models import ChequeEmis, Utilisateur, RoleEnum, StatutEnum
-from app.utils import save_file, log_action, notify
+from app.utils import save_file, log_action, notify, get_solde_info
 
 cheques_emis_bp = Blueprint("cheques_emis", __name__)
 
@@ -59,6 +59,12 @@ def declarer_cheque():
             notify(g.id, message, type="alerte", reference_id=cheque.id, reference_type="cheque_emis")
 
     db.session.commit()
+    # Confirmer au client que sa déclaration a été enregistrée
+    notify(
+        user_id,
+        f"✅ Votre chèque N°{cheque.numero} ({float(cheque.montant):,.0f} XOF) a bien été déclaré et transmis à votre gestionnaire.{get_solde_info(user_id, cheque.compte_emetteur_id)}",
+        type="info",
+    )
     log_action(user_id, "CHEQUE_EMIS_DECLARE", details=f"N°{cheque.numero}")
     return jsonify(cheque.to_dict()), 201
 
@@ -133,16 +139,17 @@ def decision_cheque_emis(cheque_emis_id):
     if cheque.caissier_id:
         notify(
             cheque.caissier_id,
-            f"Chèque N°{cheque.numero} ({float(cheque.montant):,.0f} XOF) {labels[decision]}. {commentaire}",
+            f"✅ Chèque N°{cheque.numero} ({float(cheque.montant):,.0f} XOF) {labels[decision]}. {commentaire}",
             type="validation",
             reference_id=cheque_emis_id,
             reference_type="cheque_emis",
         )
 
-    # Notifier l'émetteur
+    # Notifier l'émetteur du chèque
+    emojis = {"valide": "✅", "refuse": "❌", "retour": "↩️"}
     notify(
         cheque_emis.emetteur_id,
-        f"Votre chèque N°{cheque_emis.numero} a été {labels[decision]} par la banque. {commentaire}",
+        f"{emojis[decision]} Votre chèque N°{cheque_emis.numero} ({float(cheque_emis.montant):,.0f} XOF) a été {labels[decision]} par la banque.{' ' + commentaire if commentaire else ''}{get_solde_info(cheque_emis.emetteur_id, cheque_emis.compte_emetteur_id)}",
         type="validation",
     )
 

@@ -49,3 +49,15 @@ def notify(utilisateur_id, message, type="info", reference_id=None, reference_ty
     )
     db.session.add(notif)
     db.session.commit()
+
+
+def get_solde_info(utilisateur_id, compte_id=None) -> str:
+    """Retourne une chaîne 'Solde : X XOF' pour le compte principal ou un compte spécifique."""
+    from app.models import Compte
+    if compte_id:
+        compte = Compte.query.get(compte_id)
+    else:
+        compte = Compte.query.filter_by(utilisateur_id=utilisateur_id).order_by(Compte.id).first()
+    if compte:
+        return f" | Solde : {float(compte.solde):,.0f} {compte.devise}"
+    return ""

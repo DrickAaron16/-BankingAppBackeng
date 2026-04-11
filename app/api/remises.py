@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 from app import db
 from app.models import Remise, DetailRemise, StatutEnum, RoleEnum
-from app.utils import generate_reference, generate_qr_code, save_file, log_action, notify
+from app.utils import generate_reference, generate_qr_code, save_file, log_action, notify, get_solde_info
 import json
 
 remises_bp = Blueprint("remises", __name__)
@@ -104,8 +104,10 @@ def decision_remise(remise_id):
     db.session.commit()
 
     label = "validée ✔" if decision == "valide" else "refusée ✘"
+    emoji = "✅" if decision == "valide" else "❌"
+    total = sum(float(d.montant) for d in remise.details)
     notify(remise.client_id,
-           f"🧾 Votre remise {remise.reference} a été {label}. {data.get('commentaire', '')}",
+           f"{emoji} Votre remise {remise.reference} ({total:,.0f} XOF) a été {label}.{' ' + data.get('commentaire', '') if data.get('commentaire') else ''}{get_solde_info(remise.client_id, remise.compte_id)}",
            type="validation")
     log_action(user_id, f"REMISE_{decision.upper()}", details=f"Remise#{remise_id}")
     return jsonify(remise.to_dict()), 200

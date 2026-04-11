@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from app import db
 from app.models import Cheque, ChequeEmis, Remise, Utilisateur, Compte, StatutEnum, Notification, RoleEnum
 from app.decorators import login_required_web
-from app.utils import log_action, notify
+from app.utils import log_action, notify, get_solde_info
 import random, string
 
 gestionnaire_bp = Blueprint("gestionnaire", __name__)
@@ -112,11 +112,12 @@ def decision_cheque_emis_web(cheque_emis_id):
 
     if cheque.caissier_id:
         notify(cheque.caissier_id,
-               f"Chèque N°{cheque.numero} ({float(cheque.montant):,.0f} XOF) {labels[decision]}. {commentaire}",
+               f"✅ Chèque N°{cheque.numero} ({float(cheque.montant):,.0f} XOF) {labels[decision]}. {commentaire}",
                type="validation", reference_id=cheque_emis_id, reference_type="cheque_emis")
 
+    emojis = {"valide": "✅", "refuse": "❌", "retour": "↩️"}
     notify(cheque_emis.emetteur_id,
-           f"Votre chèque N°{cheque_emis.numero} a été {labels[decision]} par la banque. {commentaire}",
+           f"{emojis[decision]} Votre chèque N°{cheque_emis.numero} ({float(cheque_emis.montant):,.0f} XOF) a été {labels[decision]} par la banque.{' ' + commentaire if commentaire else ''}{get_solde_info(cheque_emis.emetteur_id, cheque_emis.compte_emetteur_id)}",
            type="validation")
 
     log_action(session["user_id"], f"CHEQUE_EMIS_{decision.upper()}", details=f"ChequeEmis#{cheque_emis_id}")
@@ -150,7 +151,18 @@ def decision_cheque(cheque_id):
     labels = {"valide": "validé ✔", "refuse": "refusé ✘", "retour": "retourné ↩"}
     if cheque.caissier_id:
         notify(cheque.caissier_id,
-               f"Chèque #{cheque.numero} ({cheque.montant} XOF) {labels[decision]}. {commentaire}")
+               f"✅ Chèque N°{cheque.numero} ({float(cheque.montant):,.0f} XOF) {labels[decision]}. {commentaire}",
+               type="validation")
+
+    # Notifier le client si chèque pré-déclaré
+    if cheque.cheque_emis_id:
+        from app.models import ChequeEmis
+        ce = ChequeEmis.query.get(cheque.cheque_emis_id)
+        if ce:
+            emojis = {"valide": "✅", "refuse": "❌", "retour": "↩️"}
+            notify(ce.emetteur_id,
+                   f"{emojis[decision]} Votre chèque N°{cheque.numero} ({float(cheque.montant):,.0f} XOF) a été {labels[decision]} par la banque.{' ' + commentaire if commentaire else ''}{get_solde_info(ce.emetteur_id, ce.compte_emetteur_id)}",
+                   type="validation")
 
     log_action(session["user_id"], f"CHEQUE_{decision.upper()}", details=f"Cheque#{cheque_id}")
     flash(f"Chèque {labels[decision]}", "success")
@@ -200,9 +212,13 @@ def decision_remise(remise_id):
     db.session.commit()
 
     label = "validée ✔" if decision == "valide" else "refusée ✘"
-    notify(remise.client_id, f"Votre remise {remise.reference} a été {label}. {commentaire}")
+    emoji = "✅" if decision == "valide" else "❌"
+    total = sum(float(d.montant) for d in remise.details)
+    notify(remise.client_id,
+           f"{emoji} Votre remise {remise.reference} ({total:,.0f} XOF) a été {label}.{' ' + commentaire if commentaire else ''}{get_solde_info(remise.client_id, remise.compte_id)}",
+           type="validation")
     if remise.caissier_id:
-        notify(remise.caissier_id, f"Remise {remise.reference} {label} par le gestionnaire.")
+        notify(remise.caissier_id, f"Remise {remise.reference} {label} par le gestionnaire.", type="validation")
 
     log_action(session["user_id"], f"REMISE_{decision.upper()}", details=f"Remise#{remise_id}")
     flash(f"Remise {label}", "success")
