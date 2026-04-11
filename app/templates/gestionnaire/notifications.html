@@ -32,7 +32,15 @@
           {% endif %}
         </div>
         <div class="flex-grow-1">
-          <div class="{{ '' if n.lu else 'fw-semibold' }}">{{ n.message }}</div>
+          <div class="{{ '' if n.lu else 'fw-semibold' }}">
+            {{ n.message }}
+            {% if n.reference_type == 'cheque_emis' and n.reference_id %}
+            <a href="{{ url_for('gestionnaire.detail_cheque_emis', cheque_emis_id=n.reference_id) }}"
+               class="btn btn-sm btn-outline-primary py-0 px-2 ms-2">
+              <i class="bi bi-eye me-1"></i>Voir le chèque
+            </a>
+            {% endif %}
+          </div>
           <div class="text-muted small mt-1">{{ n.created_at.strftime('%d/%m/%Y à %H:%M') }}</div>
         </div>
         {% if not n.lu %}

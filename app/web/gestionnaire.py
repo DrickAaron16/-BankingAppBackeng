@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from app import db
-from app.models import Cheque, Remise, Utilisateur, Compte, StatutEnum, Notification, RoleEnum
+from app.models import Cheque, ChequeEmis, Remise, Utilisateur, Compte, StatutEnum, Notification, RoleEnum
 from app.decorators import login_required_web
 from app.utils import log_action, notify
 import random, string
@@ -56,8 +56,72 @@ def cheques():
         "refuse": Cheque.query.filter_by(statut=StatutEnum.refuse).count(),
         "retour": Cheque.query.filter_by(statut=StatutEnum.retour).count(),
     }
+    cheques_emis = ChequeEmis.query.order_by(ChequeEmis.created_at.desc()).all()
+    cheques_emis_data = []
+    for ce in cheques_emis:
+        cheque_lie = Cheque.query.filter_by(cheque_emis_id=ce.id).first()
+        cheques_emis_data.append({"cheque_emis": ce, "est_saisi": cheque_lie is not None})
     return render_template("gestionnaire/cheques.html",
-                           cheques=liste, statut_filtre=statut, counts=counts)
+                           cheques=liste, statut_filtre=statut, counts=counts,
+                           cheques_emis=cheques_emis_data)
+
+
+@gestionnaire_bp.route("/cheques-emis/<int:cheque_emis_id>")
+@login_required_web(roles=["gestionnaire"])
+def detail_cheque_emis(cheque_emis_id):
+    cheque_emis = ChequeEmis.query.get_or_404(cheque_emis_id)
+    cheque_saisi = Cheque.query.filter_by(cheque_emis_id=cheque_emis_id).first()
+    est_saisi = cheque_saisi is not None
+    divergence = None
+    if est_saisi:
+        diff = abs(float(cheque_saisi.montant) - float(cheque_emis.montant))
+        if diff > 1:
+            divergence = diff
+    return render_template(
+        "gestionnaire/detail_cheque_emis.html",
+        cheque_emis=cheque_emis,
+        cheque_saisi=cheque_saisi,
+        est_saisi=est_saisi,
+        divergence=divergence,
+    )
+
+
+@gestionnaire_bp.route("/cheques-emis/<int:cheque_emis_id>/decision", methods=["POST"])
+@login_required_web(roles=["gestionnaire"])
+def decision_cheque_emis_web(cheque_emis_id):
+    cheque_emis = ChequeEmis.query.get_or_404(cheque_emis_id)
+    cheque = Cheque.query.filter_by(cheque_emis_id=cheque_emis_id).first()
+    if not cheque:
+        flash("Ce chèque n'a pas encore été saisi en caisse", "danger")
+        return redirect(url_for("gestionnaire.detail_cheque_emis", cheque_emis_id=cheque_emis_id))
+
+    decision = request.form.get("decision")
+    commentaire = request.form.get("commentaire", "")
+
+    if decision not in ["valide", "refuse", "retour"]:
+        flash("Décision invalide", "danger")
+        return redirect(url_for("gestionnaire.detail_cheque_emis", cheque_emis_id=cheque_emis_id))
+
+    cheque.statut = StatutEnum[decision]
+    cheque.gestionnaire_id = session["user_id"]
+    cheque.commentaire = commentaire
+    cheque_emis.statut = StatutEnum[decision]
+    db.session.commit()
+
+    labels = {"valide": "validé ✔", "refuse": "refusé ✘", "retour": "retourné ↩"}
+
+    if cheque.caissier_id:
+        notify(cheque.caissier_id,
+               f"Chèque N°{cheque.numero} ({float(cheque.montant):,.0f} XOF) {labels[decision]}. {commentaire}",
+               type="validation", reference_id=cheque_emis_id, reference_type="cheque_emis")
+
+    notify(cheque_emis.emetteur_id,
+           f"Votre chèque N°{cheque_emis.numero} a été {labels[decision]} par la banque. {commentaire}",
+           type="validation")
+
+    log_action(session["user_id"], f"CHEQUE_EMIS_{decision.upper()}", details=f"ChequeEmis#{cheque_emis_id}")
+    flash(f"Chèque {labels[decision]}", "success")
+    return redirect(url_for("gestionnaire.cheques"))
 
 
 @gestionnaire_bp.route("/cheques/<int:cheque_id>")

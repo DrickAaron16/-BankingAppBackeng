@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+{% block title %}Chèque Déclaré #{{ cheque_emis.numero }}{% endblock %}
+{% block page_title %}<i class="bi bi-phone me-2"></i>Chèque Déclaré #{{ cheque_emis.numero }}{% endblock %}
+
+{% block sidebar %}
+<div class="sidebar">
+  <div class="brand">🏦 Bank<span>Digital</span></div>
+  <nav class="mt-2">
+    <div class="nav-section">Menu</div>
+    <a href="{{ url_for('gestionnaire.dashboard') }}"><i class="bi bi-speedometer2"></i>Dashboard</a>
+    <a href="{{ url_for('gestionnaire.notifications') }}"><i class="bi bi-bell"></i>Notifications</a>
+    <div class="nav-section">Chèques</div>
+    <a href="{{ url_for('gestionnaire.cheques') }}" class="active"><i class="bi bi-file-earmark-text"></i>Valider chèques</a>
+    <div class="nav-section">Remises</div>
+    <a href="{{ url_for('gestionnaire.remises') }}"><i class="bi bi-collection"></i>Valider remises</a>
+  </nav>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <a href="{{ url_for('gestionnaire.cheques') }}#declares" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i>Retour à la liste
+  </a>
+</div>
+
+<div class="row g-3">
+
+  <!-- Colonne gauche : image du chèque -->
+  <div class="col-lg-7">
+    <div class="card p-4">
+      <h6 class="fw-bold mb-3"><i class="bi bi-image me-2"></i>Image du chèque</h6>
+      {% if cheque_emis.image_path %}
+      <img src="/uploads/{{ cheque_emis.image_path }}" class="cheque-img-full w-100"
+           style="max-height:420px; object-fit:contain; cursor:zoom-in"
+           onclick="document.getElementById('imgFull').classList.toggle('d-none')"
+           alt="Chèque #{{ cheque_emis.numero }}">
+      <p class="text-muted small mt-2 mb-0"><i class="bi bi-zoom-in me-1"></i>Cliquez pour agrandir</p>
+      <!-- Overlay plein écran -->
+      <div id="imgFull" class="d-none position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
+           style="background:rgba(0,0,0,.85); z-index:9999; cursor:zoom-out"
+           onclick="this.classList.add('d-none')">
+        <img src="/uploads/{{ cheque_emis.image_path }}" style="max-width:95vw; max-height:95vh; border-radius:8px"
+             alt="Chèque plein écran">
+      </div>
+      {% else %}
+      <div class="text-center text-muted py-5 bg-light rounded-3">
+        <i class="bi bi-image fs-1"></i>
+        <p class="mt-2">Aucune image disponible</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Colonne droite : infos + statut + comparaison -->
+  <div class="col-lg-5">
+
+    <!-- Badge statut -->
+    <div class="card p-4 mb-3">
+      <div class="d-flex align-items-center gap-2 mb-3">
+        {% if est_saisi %}
+        <span class="badge bg-success fs-6 px-3 py-2 rounded-pill">
+          <i class="bi bi-check-circle-fill me-1"></i>Saisi en caisse
+        </span>
+        {% else %}
+        <span class="badge bg-warning text-dark fs-6 px-3 py-2 rounded-pill">
+          <i class="bi bi-clock me-1"></i>Déclaré
+        </span>
+        <small class="text-muted">En attente de saisie en caisse</small>
+        {% endif %}
+      </div>
+
+      <!-- Informations générales -->
+      <h6 class="fw-bold mb-3"><i class="bi bi-info-circle me-2"></i>Informations</h6>
+      <table class="table table-borderless table-sm mb-0">
+        <tr>
+          <td class="text-muted" style="width:42%">N° Chèque</td>
+          <td class="fw-semibold">{{ cheque_emis.numero }}</td>
+        </tr>
+        <tr>
+          <td class="text-muted">Montant</td>
+          <td class="fw-bold text-primary fs-5">{{ "{:,.0f}".format(cheque_emis.montant) }} XOF</td>
+        </tr>
+        <tr>
+          <td class="text-muted">Banque</td>
+          <td>{{ cheque_emis.banque or '—' }}</td>
+        </tr>
+        <tr>
+          <td class="text-muted">Bénéficiaire</td>
+          <td>{{ cheque_emis.beneficiaire or '—' }}</td>
+        </tr>
+        {% if cheque_emis.emetteur %}
+        <tr>
+          <td class="text-muted">Émetteur</td>
+          <td>{{ cheque_emis.emetteur.prenom }} {{ cheque_emis.emetteur.nom }}</td>
+        </tr>
+        <tr>
+          <td class="text-muted">Téléphone</td>
+          <td>{{ cheque_emis.emetteur.telephone or '—' }}</td>
+        </tr>
+        {% endif %}
+        <tr>
+          <td class="text-muted">Date déclaration</td>
+          <td>{{ cheque_emis.created_at.strftime('%d/%m/%Y à %H:%M') }}</td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- Bloc comparaison (si saisi) -->
+    {% if est_saisi %}
+    <div class="card p-4 mb-3">
+      <h6 class="fw-bold mb-3"><i class="bi bi-arrow-left-right me-2"></i>Comparaison Déclaré / Saisi</h6>
+
+      {% if divergence %}
+      <div class="alert alert-danger py-2 mb-3">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+        <strong>Divergence de montant détectée :</strong>
+        {{ "{:,.0f}".format(divergence) }} XOF d'écart entre le montant déclaré et le montant saisi.
+      </div>
+      {% endif %}
+
+      <table class="table table-bordered table-sm mb-0">
+        <thead class="table-light">
+          <tr>
+            <th></th>
+            <th class="text-center"><i class="bi bi-phone me-1"></i>Déclaré</th>
+            <th class="text-center"><i class="bi bi-bank me-1"></i>Saisi</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="text-muted fw-semibold">Montant</td>
+            <td class="text-center fw-bold {% if divergence %}text-danger{% endif %}">
+              {{ "{:,.0f}".format(cheque_emis.montant) }} XOF
+            </td>
+            <td class="text-center fw-bold {% if divergence %}text-danger{% endif %}">
+              {{ "{:,.0f}".format(cheque_saisi.montant) }} XOF
+            </td>
+          </tr>
+          <tr>
+            <td class="text-muted fw-semibold">Bénéficiaire</td>
+            <td class="text-center">{{ cheque_emis.beneficiaire or '—' }}</td>
+            <td class="text-center">{{ cheque_saisi.beneficiaire or '—' }}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      {% if cheque_saisi.created_at %}
+      <p class="text-muted small mt-2 mb-0">
+        <i class="bi bi-calendar-check me-1"></i>Saisi le {{ cheque_saisi.created_at.strftime('%d/%m/%Y à %H:%M') }}
+      </p>
+      {% endif %}
+    </div>
+
+    <!-- Boutons de décision si en attente -->
+    {% if cheque_saisi.statut.value == 'en_attente' %}
+    <div class="card p-4">
+      <h6 class="fw-bold mb-3"><i class="bi bi-check2-square me-2"></i>Décision</h6>
+      <form method="POST" action="{{ url_for('gestionnaire.decision_cheque_emis_web', cheque_emis_id=cheque_emis.id) }}">
+        <div class="mb-3">
+          <label class="form-label text-muted small">Commentaire (optionnel)</label>
+          <textarea name="commentaire" class="form-control form-control-sm" rows="2" placeholder="Motif de la décision..."></textarea>
+        </div>
+        <div class="d-flex gap-2">
+          <button type="submit" name="decision" value="valide" class="btn btn-success flex-fill">
+            <i class="bi bi-check-circle me-1"></i>Valider
+          </button>
+          <button type="submit" name="decision" value="retour" class="btn btn-warning flex-fill">
+            <i class="bi bi-arrow-return-left me-1"></i>Retour
+          </button>
+          <button type="submit" name="decision" value="refuse" class="btn btn-danger flex-fill">
+            <i class="bi bi-x-circle me-1"></i>Refuser
+          </button>
+        </div>
+      </form>
+    </div>
+    {% else %}
+    <div class="alert alert-{{ 'success' if cheque_saisi.statut.value == 'valide' else 'danger' if cheque_saisi.statut.value == 'refuse' else 'warning' }} py-2">
+      <i class="bi bi-info-circle me-2"></i>
+      Décision déjà prise : <strong>{{ cheque_saisi.statut.value.replace('_',' ').title() }}</strong>
+      {% if cheque_saisi.commentaire %} — {{ cheque_saisi.commentaire }}{% endif %}
+    </div>
+    {% endif %}
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}

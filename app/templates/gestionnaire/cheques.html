@@ -18,52 +18,124 @@
 {% endblock %}
 
 {% block content %}
-<!-- Filtres avec compteurs -->
-<div class="d-flex gap-2 mb-3 flex-wrap">
-  {% for s, label in [('en_attente','En attente'), ('valide','Validés'), ('refuse','Refusés'), ('retour','Retour'), ('tous','Tous')] %}
-  <a href="?statut={{ s }}" class="btn btn-sm {{ 'btn-primary' if statut_filtre == s else 'btn-outline-secondary' }}">
-    {{ label }}
-    {% if s in counts and counts[s] > 0 %}
-    <span class="badge {{ 'bg-light text-dark' if statut_filtre == s else 'bg-secondary' }} ms-1">{{ counts[s] }}</span>
-    {% endif %}
-  </a>
-  {% endfor %}
-</div>
+<!-- Onglets -->
+<ul class="nav nav-tabs mb-3" id="chequesTabs" role="tablist">
+  <li class="nav-item" role="presentation">
+    <button class="nav-link active" id="saisis-tab" data-bs-toggle="tab" data-bs-target="#saisis"
+            type="button" role="tab">
+      <i class="bi bi-file-earmark-check me-1"></i>Chèques saisis
+      {% if counts.en_attente > 0 %}
+      <span class="badge bg-danger ms-1">{{ counts.en_attente }}</span>
+      {% endif %}
+    </button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="declares-tab" data-bs-toggle="tab" data-bs-target="#declares"
+            type="button" role="tab">
+      <i class="bi bi-phone me-1"></i>Chèques déclarés
+      {% if cheques_emis %}
+      <span class="badge bg-secondary ms-1">{{ cheques_emis|length }}</span>
+      {% endif %}
+    </button>
+  </li>
+</ul>
 
-<div class="card">
-  <div class="table-responsive">
-    <table class="table table-hover mb-0">
-      <thead>
-        <tr><th>N° Chèque</th><th>Montant</th><th>Bénéficiaire</th><th>Banque</th><th>Image</th><th>Statut</th><th>Date</th><th>Action</th></tr>
-      </thead>
-      <tbody>
-        {% for c in cheques %}
-        <tr>
-          <td class="fw-semibold">{{ c.numero }}</td>
-          <td class="fw-bold">{{ "{:,.0f}".format(c.montant) }} XOF</td>
-          <td>{{ c.beneficiaire or '—' }}</td>
-          <td>{{ c.banque or '—' }}</td>
-          <td>
-            {% if c.image_path %}
-            <img src="/uploads/{{ c.image_path }}" class="cheque-thumb"
-                 data-bs-toggle="modal" data-bs-target="#imgModal"
-                 data-src="/uploads/{{ c.image_path }}" alt="chèque">
-            {% else %}<span class="text-muted">—</span>{% endif %}
-          </td>
-          <td><span class="badge badge-{{ c.statut.value }} rounded-pill px-2">{{ c.statut.value.replace('_',' ').title() }}</span></td>
-          <td class="text-muted small">{{ c.created_at.strftime('%d/%m/%Y') }}</td>
-          <td>
-            <a href="{{ url_for('gestionnaire.detail_cheque', cheque_id=c.id) }}" class="btn btn-sm btn-primary py-0 px-2">
-              {% if c.statut.value == 'en_attente' %}<i class="bi bi-pencil-square me-1"></i>Traiter{% else %}Voir{% endif %}
-            </a>
-          </td>
-        </tr>
-        {% else %}
-        <tr><td colspan="8" class="text-center text-muted py-5">Aucun chèque</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
+<div class="tab-content" id="chequesTabContent">
+
+  <!-- Onglet 1 : Chèques saisis -->
+  <div class="tab-pane fade show active" id="saisis" role="tabpanel">
+    <!-- Filtres avec compteurs -->
+    <div class="d-flex gap-2 mb-3 flex-wrap">
+      {% for s, label in [('en_attente','En attente'), ('valide','Validés'), ('refuse','Refusés'), ('retour','Retour'), ('tous','Tous')] %}
+      <a href="?statut={{ s }}" class="btn btn-sm {{ 'btn-primary' if statut_filtre == s else 'btn-outline-secondary' }}">
+        {{ label }}
+        {% if s in counts and counts[s] > 0 %}
+        <span class="badge {{ 'bg-light text-dark' if statut_filtre == s else 'bg-secondary' }} ms-1">{{ counts[s] }}</span>
+        {% endif %}
+      </a>
+      {% endfor %}
+    </div>
+
+    <div class="card">
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead>
+            <tr><th>N° Chèque</th><th>Montant</th><th>Bénéficiaire</th><th>Banque</th><th>Image</th><th>Statut</th><th>Date</th><th>Action</th></tr>
+          </thead>
+          <tbody>
+            {% for c in cheques %}
+            <tr>
+              <td class="fw-semibold">{{ c.numero }}</td>
+              <td class="fw-bold">{{ "{:,.0f}".format(c.montant) }} XOF</td>
+              <td>{{ c.beneficiaire or '—' }}</td>
+              <td>{{ c.banque or '—' }}</td>
+              <td>
+                {% if c.image_path %}
+                <img src="/uploads/{{ c.image_path }}" class="cheque-thumb"
+                     data-bs-toggle="modal" data-bs-target="#imgModal"
+                     data-src="/uploads/{{ c.image_path }}" alt="chèque">
+                {% else %}<span class="text-muted">—</span>{% endif %}
+              </td>
+              <td><span class="badge badge-{{ c.statut.value }} rounded-pill px-2">{{ c.statut.value.replace('_',' ').title() }}</span></td>
+              <td class="text-muted small">{{ c.created_at.strftime('%d/%m/%Y') }}</td>
+              <td>
+                <a href="{{ url_for('gestionnaire.detail_cheque', cheque_id=c.id) }}" class="btn btn-sm btn-primary py-0 px-2">
+                  {% if c.statut.value == 'en_attente' %}<i class="bi bi-pencil-square me-1"></i>Traiter{% else %}Voir{% endif %}
+                </a>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="8" class="text-center text-muted py-5">Aucun chèque</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
   </div>
+
+  <!-- Onglet 2 : Chèques déclarés -->
+  <div class="tab-pane fade" id="declares" role="tabpanel">
+    <div class="card">
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead>
+            <tr><th>N° Chèque</th><th>Montant</th><th>Bénéficiaire</th><th>Émetteur</th><th>Date</th><th>Statut</th><th>Action</th></tr>
+          </thead>
+          <tbody>
+            {% for item in cheques_emis %}
+            <tr>
+              <td class="fw-semibold">{{ item.cheque_emis.numero }}</td>
+              <td class="fw-bold">{{ "{:,.0f}".format(item.cheque_emis.montant) }} XOF</td>
+              <td>{{ item.cheque_emis.beneficiaire or '—' }}</td>
+              <td>
+                {% if item.cheque_emis.emetteur %}
+                  {{ item.cheque_emis.emetteur.prenom }} {{ item.cheque_emis.emetteur.nom }}
+                {% else %}—{% endif %}
+              </td>
+              <td class="text-muted small">{{ item.cheque_emis.created_at.strftime('%d/%m/%Y') }}</td>
+              <td>
+                {% if item.est_saisi %}
+                <span class="badge bg-success rounded-pill px-2">Saisi</span>
+                {% else %}
+                <span class="badge bg-warning text-dark rounded-pill px-2">Déclaré</span>
+                {% endif %}
+              </td>
+              <td>
+                <a href="{{ url_for('gestionnaire.detail_cheque_emis', cheque_emis_id=item.cheque_emis.id) }}"
+                   class="btn btn-sm btn-outline-primary py-0 px-2">
+                  <i class="bi bi-eye me-1"></i>Voir
+                </a>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="7" class="text-center text-muted py-5">Aucun chèque déclaré</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <!-- Modal aperçu image -->
@@ -87,5 +159,11 @@
   document.querySelectorAll('.cheque-thumb').forEach(img => {
     img.addEventListener('click', () => { document.getElementById('modalImg').src = img.dataset.src; });
   });
+
+  // Activer l'onglet "Déclarés" si l'URL contient #declares
+  if (window.location.hash === '#declares') {
+    const tab = document.getElementById('declares-tab');
+    if (tab) { bootstrap.Tab.getOrCreateInstance(tab).show(); }
+  }
 </script>
 {% endblock %}

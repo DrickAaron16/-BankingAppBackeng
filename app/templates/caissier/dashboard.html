@@ -65,7 +65,7 @@
   </div>
 </div>
 
-<!-- Derniers chèques + action rapide -->
+<!-- Derniers chèques + action rapide + notifications -->
 <div class="row g-3">
   <div class="col-lg-8">
     <div class="card">
@@ -95,11 +95,30 @@
     </div>
   </div>
   <div class="col-lg-4">
-    <div class="card p-4 text-center">
+    <div class="card p-4 text-center mb-3">
       <i class="bi bi-plus-circle-fill text-primary" style="font-size:3rem"></i>
       <h6 class="mt-3 mb-1">Enregistrer un chèque</h6>
       <p class="text-muted small mb-3">Saisissez et scannez un nouveau chèque à soumettre au gestionnaire.</p>
       <a href="{{ url_for('caissier.nouveau_cheque') }}" class="btn btn-primary">Nouveau chèque</a>
+    </div>
+    <!-- Notifications récentes -->
+    <div class="card">
+      <div class="card-header"><i class="bi bi-bell me-2"></i>Notifications récentes</div>
+      <div class="list-group list-group-flush">
+        {% for n in notifs %}
+        <div class="list-group-item px-3 py-2 {{ '' if n.lu else 'bg-light' }}">
+          <div class="d-flex gap-2 align-items-start">
+            <i class="bi {{ 'bi-bell-fill text-warning' if not n.lu else 'bi-bell text-muted' }} mt-1"></i>
+            <div>
+              <div class="small {{ 'fw-semibold' if not n.lu else '' }}">{{ n.message }}</div>
+              <div class="text-muted" style="font-size:11px">{{ n.created_at.strftime('%d/%m %H:%M') }}</div>
+            </div>
+          </div>
+        </div>
+        {% else %}
+        <div class="list-group-item text-center text-muted py-3 small">Aucune notification</div>
+        {% endfor %}
+      </div>
     </div>
   </div>
 </div>

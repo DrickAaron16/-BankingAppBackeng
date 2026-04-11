@@ -148,8 +148,11 @@ class ChequeEmis(db.Model):
 
     emetteur = db.relationship("Utilisateur", foreign_keys=[emetteur_id])
 
-    def to_dict(self):
-        return {
+    def to_dict(self, include_cheque_saisi=False, base_url=""):
+        image_url = None
+        if base_url and self.image_path:
+            image_url = f"{base_url}uploads/{self.image_path}"
+        d = {
             "id": self.id,
             "numero": self.numero,
             "montant": float(self.montant),
@@ -157,11 +160,19 @@ class ChequeEmis(db.Model):
             "beneficiaire": self.beneficiaire,
             "compte_beneficiaire": self.compte_beneficiaire,
             "image_path": self.image_path,
+            "image_url": image_url,
             "statut": self.statut.value,
             "commentaire": self.commentaire,
             "emetteur": self.emetteur.to_dict() if self.emetteur else None,
             "date": self.created_at.isoformat(),
+            "est_saisi": False,
+            "cheque_saisi": None,
         }
+        if include_cheque_saisi:
+            cheque = Cheque.query.filter_by(cheque_emis_id=self.id).first()
+            d["est_saisi"] = cheque is not None
+            d["cheque_saisi"] = cheque.to_dict() if cheque else None
+        return d
 
 
 # ─── Chèque traité (par le caissier lors de l'encaissement) ──────────────────────
@@ -309,6 +320,8 @@ class Notification(db.Model):
     type = db.Column(db.String(50), default="info")  # info, alerte, validation
     message = db.Column(db.Text, nullable=False)
     lu = db.Column(db.Boolean, default=False)
+    reference_id = db.Column(db.Integer, nullable=True)
+    reference_type = db.Column(db.String(50), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def to_dict(self):
@@ -318,6 +331,8 @@ class Notification(db.Model):
             "message": self.message,
             "lu": self.lu,
             "date": self.created_at.isoformat(),
+            "reference_id": self.reference_id,
+            "reference_type": self.reference_type,
         }
 
 

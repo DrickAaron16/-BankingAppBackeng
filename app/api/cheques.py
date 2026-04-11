@@ -75,12 +75,36 @@ def create_cheque():
     db.session.commit()
 
     # Notifier le gestionnaire si pré-déclaré
-    if pre_declare and cheque_emis.gestionnaire_id:
-        notify(
-            cheque_emis.gestionnaire_id,
-            f"Chèque N°{numero} ({cheque.montant} XOF) présenté en caisse par {cheque.beneficiaire or 'bénéficiaire'}. Veuillez valider.",
-            type="validation"
+    if pre_declare:
+        # Construire le message enrichi
+        message = (
+            f"Chèque saisi en caisse - N°{cheque.numero} | {cheque.montant} XOF | "
+            f"Bénéficiaire: {cheque.beneficiaire or 'non renseigné'} | En attente de validation"
         )
+        if abs(float(cheque.montant) - float(cheque_emis.montant)) > 1:
+            message += (
+                f" ⚠️ DIVERGENCE DE MONTANT: déclaré {cheque_emis.montant} XOF, saisi {cheque.montant} XOF"
+            )
+
+        if cheque_emis.gestionnaire_id:
+            notify(
+                cheque_emis.gestionnaire_id,
+                message,
+                type="validation",
+                reference_id=cheque_emis.id,
+                reference_type="cheque_emis",
+            )
+        else:
+            # Notifier tous les gestionnaires actifs
+            gestionnaires = Utilisateur.query.filter_by(role=RoleEnum.gestionnaire, actif=True).all()
+            for g in gestionnaires:
+                notify(
+                    g.id,
+                    message,
+                    type="validation",
+                    reference_id=cheque_emis.id,
+                    reference_type="cheque_emis",
+                )
 
     log_action(user_id, "CHEQUE_CREE", details=f"Cheque#{cheque.id} pre_declare={pre_declare}")
     return jsonify({

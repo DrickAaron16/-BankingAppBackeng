@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 from app import db
-from app.models import Cheque, Remise, DetailRemise, StatutEnum, Utilisateur
+from app.models import Cheque, Remise, DetailRemise, StatutEnum, Utilisateur, Notification
 from app.decorators import login_required_web
 from app.utils import save_file, log_action, notify, generate_reference, generate_qr_code
 import json
@@ -20,7 +20,9 @@ def dashboard():
     }
     derniers_cheques = (Cheque.query.filter_by(caissier_id=uid)
                         .order_by(Cheque.created_at.desc()).limit(8).all())
-    return render_template("caissier/dashboard.html", stats=stats, derniers_cheques=derniers_cheques)
+    notifs = (Notification.query.filter_by(utilisateur_id=uid)
+              .order_by(Notification.created_at.desc()).limit(10).all())
+    return render_template("caissier/dashboard.html", stats=stats, derniers_cheques=derniers_cheques, notifs=notifs)
 
 
 # ─── Chèques ──────────────────────────────────────────────────────────────────
@@ -75,12 +77,19 @@ def nouveau_cheque():
         db.session.commit()
 
         if cheque_emis:
-            # Notifier le gestionnaire
-            gestionnaires = Utilisateur.query.filter_by(role="gestionnaire", actif=True).all()
-            for g in gestionnaires:
-                notify(g.id,
-                       f"Chèque N°{numero} ({cheque.montant} XOF) présenté en caisse — pré-déclaré par {cheque_emis.emetteur.prenom} {cheque_emis.emetteur.nom}",
-                       type="validation")
+            # Notifier le gestionnaire avec reference_id pour navigation directe
+            message = (
+                f"Chèque N°{numero} ({float(cheque.montant):,.0f} XOF) présenté en caisse"
+                f" — pré-déclaré par {cheque_emis.emetteur.prenom} {cheque_emis.emetteur.nom}"
+            )
+            if cheque_emis.gestionnaire_id:
+                notify(cheque_emis.gestionnaire_id, message, type="validation",
+                       reference_id=cheque_emis.id, reference_type="cheque_emis")
+            else:
+                gestionnaires = Utilisateur.query.filter_by(role="gestionnaire", actif=True).all()
+                for g in gestionnaires:
+                    notify(g.id, message, type="validation",
+                           reference_id=cheque_emis.id, reference_type="cheque_emis")
             flash(f"✔ Chèque pré-déclaré par {cheque_emis.emetteur.prenom} {cheque_emis.emetteur.nom} — gestionnaire notifié", "success")
         else:
             flash("Chèque soumis pour validation (non pré-déclaré)", "warning")
