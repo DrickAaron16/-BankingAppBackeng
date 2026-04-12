@@ -23,13 +23,16 @@ def declarer_cheque():
     if "image" in request.files and request.files["image"].filename:
         image_path = save_file(request.files["image"], "cheques_emis")
 
+    compte_emetteur_id_raw = request.form.get("compte_emetteur_id")
+    compte_emetteur_id = int(compte_emetteur_id_raw) if compte_emetteur_id_raw and compte_emetteur_id_raw.strip() else None
+
     cheque = ChequeEmis(
         numero=request.form.get("numero"),
         montant=request.form.get("montant"),
         banque=request.form.get("banque"),
         beneficiaire=request.form.get("beneficiaire"),
         compte_beneficiaire=request.form.get("compte_beneficiaire"),
-        compte_emetteur_id=request.form.get("compte_emetteur_id"),
+        compte_emetteur_id=compte_emetteur_id,
         image_path=image_path,
         emetteur_id=user_id,
     )
@@ -136,20 +139,29 @@ def decision_cheque_emis(cheque_emis_id):
     from app.models import Compte, Transaction, TypeTransaction
     from app.utils import generate_reference
     from decimal import Decimal
-    if decision == "valide" and cheque_emis.compte_emetteur_id:
-        compte = Compte.query.get(cheque_emis.compte_emetteur_id)
-        if compte:
-            montant = Decimal(str(cheque_emis.montant))
-            compte.solde -= montant
-            tx = Transaction(
-                reference=generate_reference(),
-                type=TypeTransaction.encaissement_cheque,
-                montant=montant,
-                compte_source_id=compte.id,
-                description=f"Encaissement chèque N°{cheque_emis.numero} — {cheque_emis.beneficiaire or 'bénéficiaire'}",
-                statut=SE.valide,
-            )
-            db.session.add(tx)
+    if decision == "valide":
+        # Chercher le compte : d'abord compte_emetteur_id, sinon compte principal de l'émetteur
+        compte_id = cheque_emis.compte_emetteur_id
+        if not compte_id:
+            compte_principal = Compte.query.filter_by(utilisateur_id=cheque_emis.emetteur_id).order_by(Compte.id).first()
+            if compte_principal:
+                compte_id = compte_principal.id
+                cheque_emis.compte_emetteur_id = compte_id  # sauvegarder pour les prochaines fois
+
+        if compte_id:
+            compte = Compte.query.get(compte_id)
+            if compte:
+                montant = Decimal(str(cheque_emis.montant))
+                compte.solde -= montant
+                tx = Transaction(
+                    reference=generate_reference(),
+                    type=TypeTransaction.encaissement_cheque,
+                    montant=montant,
+                    compte_source_id=compte.id,
+                    description=f"Encaissement chèque N°{cheque_emis.numero} — {cheque_emis.beneficiaire or 'bénéficiaire'}",
+                    statut=SE.valide,
+                )
+                db.session.add(tx)
 
     db.session.commit()
 

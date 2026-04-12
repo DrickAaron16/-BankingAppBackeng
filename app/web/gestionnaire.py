@@ -111,20 +111,28 @@ def decision_cheque_emis_web(cheque_emis_id):
     from app.models import Compte, Transaction, TypeTransaction
     from app.utils import generate_reference
     from decimal import Decimal
-    if decision == "valide" and cheque_emis.compte_emetteur_id:
-        compte = Compte.query.get(cheque_emis.compte_emetteur_id)
-        if compte:
-            montant = Decimal(str(cheque_emis.montant))
-            compte.solde -= montant
-            tx = Transaction(
-                reference=generate_reference(),
-                type=TypeTransaction.encaissement_cheque,
-                montant=montant,
-                compte_source_id=compte.id,
-                description=f"Encaissement chèque N°{cheque_emis.numero} — {cheque_emis.beneficiaire or 'bénéficiaire'}",
-                statut=StatutEnum.valide,
-            )
-            db.session.add(tx)
+    if decision == "valide":
+        compte_id = cheque_emis.compte_emetteur_id
+        if not compte_id:
+            compte_principal = Compte.query.filter_by(utilisateur_id=cheque_emis.emetteur_id).order_by(Compte.id).first()
+            if compte_principal:
+                compte_id = compte_principal.id
+                cheque_emis.compte_emetteur_id = compte_id
+
+        if compte_id:
+            compte = Compte.query.get(compte_id)
+            if compte:
+                montant = Decimal(str(cheque_emis.montant))
+                compte.solde -= montant
+                tx = Transaction(
+                    reference=generate_reference(),
+                    type=TypeTransaction.encaissement_cheque,
+                    montant=montant,
+                    compte_source_id=compte.id,
+                    description=f"Encaissement chèque N°{cheque_emis.numero} — {cheque_emis.beneficiaire or 'bénéficiaire'}",
+                    statut=StatutEnum.valide,
+                )
+                db.session.add(tx)
 
     db.session.commit()
 
