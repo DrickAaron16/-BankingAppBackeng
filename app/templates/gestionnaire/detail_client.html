@@ -43,6 +43,12 @@
         <tr><td class="text-muted">Inscrit le</td><td>{{ client.created_at.strftime('%d/%m/%Y') }}</td></tr>
         <tr><td class="text-muted">Comptes</td><td><strong>{{ comptes|length }}</strong></td></tr>
       </table>
+      {% if client.code_client %}
+      <div class="mt-3 p-3 rounded-3 text-center" style="background:#1B4FBE;color:white">
+        <div class="small mb-1 opacity-75">Code client</div>
+        <div class="fw-bold fs-5 letter-spacing-2">{{ client.code_client }}</div>
+      </div>
+      {% endif %}
     </div>
   </div>
 

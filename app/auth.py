@@ -19,10 +19,14 @@ def _make_token(user):
 @auth_bp.route("/login", methods=["POST"])
 def login():
     data = request.get_json()
-    email = data.get("email", "").strip().lower()
+    identifiant = data.get("email", "").strip()
     password = data.get("password", "")
 
-    user = Utilisateur.query.filter_by(email=email, actif=True).first()
+    # Chercher par code_client d'abord, puis par email
+    user = Utilisateur.query.filter_by(code_client=identifiant.upper(), actif=True).first()
+    if not user:
+        user = Utilisateur.query.filter_by(email=identifiant.lower(), actif=True).first()
+
     if not user or not user.check_password(password):
         return jsonify({"error": "Identifiants invalides"}), 401
 
@@ -57,7 +61,15 @@ def register():
     if Utilisateur.query.filter_by(email=data["email"]).first():
         return jsonify({"error": "Email déjà utilisé"}), 409
 
+    # Générer un code client unique : CLI + 6 chiffres
+    import random
+    while True:
+        code = f"CLI{random.randint(100000, 999999)}"
+        if not Utilisateur.query.filter_by(code_client=code).first():
+            break
+
     user = Utilisateur(
+        code_client=code,
         nom=data["nom"],
         prenom=data["prenom"],
         email=data["email"].strip().lower(),
@@ -67,7 +79,11 @@ def register():
     user.set_password(data["password"])
     db.session.add(user)
     db.session.commit()
-    return jsonify({"message": "Compte créé. Votre compte bancaire sera ouvert en agence.", "user": user.to_dict()}), 201
+    return jsonify({
+        "message": f"Compte créé. Votre code client est : {code}",
+        "code_client": code,
+        "user": user.to_dict()
+    }), 201
 
 
 @auth_bp.route("/me", methods=["GET"])

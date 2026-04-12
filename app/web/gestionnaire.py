@@ -304,6 +304,16 @@ def creer_compte(client_id):
     compte = Compte(numero=numero, solde=solde_initial, devise=devise,
                     type=type_compte, utilisateur_id=client_id)
     db.session.add(compte)
+
+    # Générer code_client si pas encore assigné
+    if not client.code_client:
+        import random as _r
+        while True:
+            code = f"CLI{_r.randint(100000, 999999)}"
+            if not Utilisateur.query.filter_by(code_client=code).first():
+                break
+        client.code_client = code
+
     db.session.commit()
 
     notify(client_id, f"Votre compte bancaire N° {numero} a été ouvert. Solde initial : {solde_initial:,.0f} {devise}")

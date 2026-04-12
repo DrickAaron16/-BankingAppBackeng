@@ -40,13 +40,14 @@ class TypeTransaction(str, enum.Enum):
 class Utilisateur(db.Model):
     __tablename__ = "utilisateurs"
     id = db.Column(db.Integer, primary_key=True)
+    code_client = db.Column(db.String(20), unique=True, nullable=True, index=True)
     nom = db.Column(db.String(100), nullable=False)
     prenom = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(150), unique=True, nullable=False)
     telephone = db.Column(db.String(20), unique=True)
     password_hash = db.Column(db.String(255), nullable=False)
     role = db.Column(db.Enum(RoleEnum), default=RoleEnum.client, nullable=False)
-    signature_path = db.Column(db.String(255))   # signature digitale
+    signature_path = db.Column(db.String(255))
     otp_secret = db.Column(db.String(32))
     actif = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -63,6 +64,7 @@ class Utilisateur(db.Model):
     def to_dict(self):
         return {
             "id": self.id,
+            "code_client": self.code_client,
             "nom": self.nom,
             "prenom": self.prenom,
             "email": self.email,
