@@ -106,6 +106,26 @@ def decision_cheque_emis_web(cheque_emis_id):
     cheque.gestionnaire_id = session["user_id"]
     cheque.commentaire = commentaire
     cheque_emis.statut = StatutEnum[decision]
+
+    # Débit du compte émetteur si chèque validé
+    from app.models import Compte, Transaction, TypeTransaction
+    from app.utils import generate_reference
+    from decimal import Decimal
+    if decision == "valide" and cheque_emis.compte_emetteur_id:
+        compte = Compte.query.get(cheque_emis.compte_emetteur_id)
+        if compte:
+            montant = Decimal(str(cheque_emis.montant))
+            compte.solde -= montant
+            tx = Transaction(
+                reference=generate_reference(),
+                type=TypeTransaction.encaissement_cheque,
+                montant=montant,
+                compte_source_id=compte.id,
+                description=f"Encaissement chèque N°{cheque_emis.numero} — {cheque_emis.beneficiaire or 'bénéficiaire'}",
+                statut=StatutEnum.valide,
+            )
+            db.session.add(tx)
+
     db.session.commit()
 
     labels = {"valide": "validé ✔", "refuse": "refusé ✘", "retour": "retourné ↩"}
@@ -116,9 +136,10 @@ def decision_cheque_emis_web(cheque_emis_id):
                type="validation", reference_id=cheque_emis_id, reference_type="cheque_emis")
 
     emojis = {"valide": "✅", "refuse": "❌", "retour": "↩️"}
+    notif_type = "debit" if decision == "valide" else "validation"
     notify(cheque_emis.emetteur_id,
            f"{emojis[decision]} Votre chèque N°{cheque_emis.numero} ({float(cheque_emis.montant):,.0f} XOF) a été {labels[decision]} par la banque.{' ' + commentaire if commentaire else ''}{get_solde_info(cheque_emis.emetteur_id, cheque_emis.compte_emetteur_id)}",
-           type="validation")
+           type=notif_type)
 
     log_action(session["user_id"], f"CHEQUE_EMIS_{decision.upper()}", details=f"ChequeEmis#{cheque_emis_id}")
     flash(f"Chèque {labels[decision]}", "success")
@@ -209,14 +230,35 @@ def decision_remise(remise_id):
     remise.statut = StatutEnum[decision]
     remise.gestionnaire_id = session["user_id"]
     remise.commentaire = commentaire
+
+    # Crédit du compte client si remise validée
+    from app.models import Compte, Transaction, TypeTransaction
+    from app.utils import generate_reference
+    from decimal import Decimal
+    total = sum(float(d.montant) for d in remise.details)
+    if decision == "valide" and remise.compte_id:
+        compte = Compte.query.get(remise.compte_id)
+        if compte:
+            montant = Decimal(str(total))
+            compte.solde += montant
+            tx = Transaction(
+                reference=generate_reference(),
+                type=TypeTransaction.depot,
+                montant=montant,
+                compte_dest_id=compte.id,
+                description=f"Remise de chèques {remise.reference} — {len(remise.details)} chèque(s)",
+                statut=StatutEnum.valide,
+            )
+            db.session.add(tx)
+
     db.session.commit()
 
     label = "validée ✔" if decision == "valide" else "refusée ✘"
     emoji = "✅" if decision == "valide" else "❌"
-    total = sum(float(d.montant) for d in remise.details)
+    notif_type = "credit" if decision == "valide" else "validation"
     notify(remise.client_id,
            f"{emoji} Votre remise {remise.reference} ({total:,.0f} XOF) a été {label}.{' ' + commentaire if commentaire else ''}{get_solde_info(remise.client_id, remise.compte_id)}",
-           type="validation")
+           type=notif_type)
     if remise.caissier_id:
         notify(remise.caissier_id, f"Remise {remise.reference} {label} par le gestionnaire.", type="validation")
 

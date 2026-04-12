@@ -131,6 +131,26 @@ def decision_cheque_emis(cheque_emis_id):
     cheque.gestionnaire_id = user_id
     cheque.commentaire = commentaire
     cheque_emis.statut = SE[decision]
+
+    # Débit du compte émetteur si chèque validé
+    from app.models import Compte, Transaction, TypeTransaction
+    from app.utils import generate_reference
+    from decimal import Decimal
+    if decision == "valide" and cheque_emis.compte_emetteur_id:
+        compte = Compte.query.get(cheque_emis.compte_emetteur_id)
+        if compte:
+            montant = Decimal(str(cheque_emis.montant))
+            compte.solde -= montant
+            tx = Transaction(
+                reference=generate_reference(),
+                type=TypeTransaction.encaissement_cheque,
+                montant=montant,
+                compte_source_id=compte.id,
+                description=f"Encaissement chèque N°{cheque_emis.numero} — {cheque_emis.beneficiaire or 'bénéficiaire'}",
+                statut=SE.valide,
+            )
+            db.session.add(tx)
+
     db.session.commit()
 
     labels = {"valide": "validé ✔", "refuse": "refusé ✘", "retour": "retourné ↩"}
@@ -147,10 +167,11 @@ def decision_cheque_emis(cheque_emis_id):
 
     # Notifier l'émetteur du chèque
     emojis = {"valide": "✅", "refuse": "❌", "retour": "↩️"}
+    notif_type = "debit" if decision == "valide" else "validation"
     notify(
         cheque_emis.emetteur_id,
         f"{emojis[decision]} Votre chèque N°{cheque_emis.numero} ({float(cheque_emis.montant):,.0f} XOF) a été {labels[decision]} par la banque.{' ' + commentaire if commentaire else ''}{get_solde_info(cheque_emis.emetteur_id, cheque_emis.compte_emetteur_id)}",
-        type="validation",
+        type=notif_type,
     )
 
     log_action(user_id, f"CHEQUE_EMIS_{decision.upper()}", details=f"ChequeEmis#{cheque_emis_id}")

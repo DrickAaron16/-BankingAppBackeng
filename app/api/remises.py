@@ -101,13 +101,34 @@ def decision_remise(remise_id):
     remise.statut = StatutEnum[decision]
     remise.gestionnaire_id = user_id
     remise.commentaire = data.get("commentaire", "")
+
+    # Crédit du compte client si remise validée
+    from app.models import Compte, Transaction, TypeTransaction
+    from app.utils import generate_reference
+    from decimal import Decimal
+    total = sum(float(d.montant) for d in remise.details)
+    if decision == "valide" and remise.compte_id:
+        compte = Compte.query.get(remise.compte_id)
+        if compte:
+            montant = Decimal(str(total))
+            compte.solde += montant
+            tx = Transaction(
+                reference=generate_reference(),
+                type=TypeTransaction.depot,
+                montant=montant,
+                compte_dest_id=compte.id,
+                description=f"Remise de chèques {remise.reference} — {len(remise.details)} chèque(s)",
+                statut=StatutEnum.valide,
+            )
+            db.session.add(tx)
+
     db.session.commit()
 
     label = "validée ✔" if decision == "valide" else "refusée ✘"
     emoji = "✅" if decision == "valide" else "❌"
-    total = sum(float(d.montant) for d in remise.details)
+    notif_type = "credit" if decision == "valide" else "validation"
     notify(remise.client_id,
            f"{emoji} Votre remise {remise.reference} ({total:,.0f} XOF) a été {label}.{' ' + data.get('commentaire', '') if data.get('commentaire') else ''}{get_solde_info(remise.client_id, remise.compte_id)}",
-           type="validation")
+           type=notif_type)
     log_action(user_id, f"REMISE_{decision.upper()}", details=f"Remise#{remise_id}")
     return jsonify(remise.to_dict()), 200
