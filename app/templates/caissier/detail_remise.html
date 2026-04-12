@@ -71,7 +71,12 @@
       <div class="card-header">Chèques inclus ({{ remise.details|length }})</div>
       <div class="table-responsive">
         <table class="table table-hover mb-0">
-          <thead><tr><th>#</th><th>N° Chèque</th><th>Montant</th><th>Émetteur</th><th>Tél</th><th>Compte émetteur</th><th>Banque</th><th>Bénéficiaire</th><th>Image</th></tr></thead>
+          <thead>
+            <tr>
+              <th>#</th><th>N° Chèque</th><th>Montant</th><th>Émetteur</th>
+              <th>Tél</th><th>Compte émetteur</th><th>Banque</th><th>Bénéficiaire</th><th>Image</th>
+            </tr>
+          </thead>
           <tbody>
             {% for d in remise.details %}
             <tr>
@@ -81,21 +86,6 @@
               <td>{{ d.emetteur or '—' }}</td>
               <td>{{ d.telephone_emetteur or '—' }}</td>
               <td><code>{{ d.compte_emetteur or '—' }}</code></td>
-              <td>{{ d.banque or '—' }}</td>
-              <td>{{ d.beneficiaire or '—' }}</td>
-              <td>
-                {% if d.image_path %}
-                <img src="/uploads/{{ d.image_path }}" class="cheque-thumb"
-                     data-bs-toggle="modal" data-bs-target="#imgModal"
-                     data-src="/uploads/{{ d.image_path }}">
-                {% else %}—{% endif %}
-              </td>
-            </tr>
-            {% endfor %}
-            <tr>
-              <td class="text-muted">{{ loop.index }}</td>
-              <td class="fw-semibold">{{ d.numero_cheque }}</td>
-              <td>{{ "{:,.0f}".format(d.montant) }} XOF</td>
               <td>{{ d.banque or '—' }}</td>
               <td>{{ d.beneficiaire or '—' }}</td>
               <td>
